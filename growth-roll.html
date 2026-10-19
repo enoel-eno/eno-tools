@@ -1,6 +1,6 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>成長判定ツール</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex, nofollow">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
 <style>
 /* Layout: 左に貼り付け欄＋設定、右に探索者ごとの成長判定表（スマホでは縦積み） */
@@ -85,6 +85,7 @@ details.ex button{font-size:12px;padding:2px 8px}
 .rules{flex-direction:column;flex-wrap:nowrap;gap:8px}
 .presets{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .presets button{font-size:12px;padding:2px 9px}
+.presets .copy-rules{margin-left:auto}
 .rl-head,.rl-grid{display:grid;grid-template-columns:5.6em minmax(0,1fr) 5.4em;gap:6px 8px;align-items:center}
 .rl-head{font-size:11px;color:var(--muted);letter-spacing:.04em}
 .rl-name{font-size:13px;font-weight:500}
@@ -108,10 +109,9 @@ details.ex button{font-size:12px;padding:2px 8px}
 </style>
 
 <div class="wrap">
-  <a href="./" style="display:inline-block;margin-bottom:6px;font-size:13px;color:var(--muted);text-decoration:none">← ツール一覧</a>
   <header>
     <h1>成長判定ツール</h1>
-    <p>ログを貼ると、対象の出目が出た技能を探索者ごとに拾って成長判定します。</p>
+    <p>ココフォリアのログを貼ると、成長判定対象技能を探索者ごとに表示します。成長判定もできます。</p>
   </header>
 
   <div class="grid">
@@ -135,7 +135,7 @@ details.ex button{font-size:12px;padding:2px 8px}
       </div>
       <fieldset class="rules">
         <legend>成長ルール</legend>
-        <div class="presets"><span class="note">プリセット</span><button type="button" data-preset="std">標準</button><button type="button" data-preset="eno">eNo卓</button></div>
+        <div class="presets"><span class="note">プリセット</span><button type="button" data-preset="std">標準</button><button type="button" data-preset="eno">eNo卓</button><button type="button" id="copyRules" class="copy-rules">成長ルールをコピー</button></div>
         <div class="rl-head"><span>元のダイス結果</span><span>扱い</span><span>成長量</span></div>
         <div class="rl-grid">
           <label class="rl-name" for="fx-vals">出目</label><input id="fx-vals" class="amt wide" value="1,100" aria-label="判定なしで成長する出目（カンマ区切り）"><input id="fx-amt" class="amt" value="1D10" aria-label="指定出目の成長量">
@@ -317,7 +317,7 @@ function render(){
       const exCount = excluded.reduce((n, x) => n + x.hits.length, 0);
       html += `<details class="ex"><summary>通常は成長しない技能 ${exCount} 件（${excluded.length} 技能）</summary><ul class="ex-list">${excluded.map(x => `<li><span class="skill">${esc(x.skill)}</span><span class="num">${x.value}</span><span class="ex-dice">${x.hits.map(o => `<span class="chip c-${o.x.cat} hit"><b>${o.x.die}</b>${LABEL[o.x.cat]}</span>`).join('')}</span><span class="ex-n">${x.hits.length}件</span><button type="button" data-add="${esc(x.key)}">一覧に追加</button></li>`).join('')}</ul></details>`;
     }
-    html += `<div class="pc-foot"><button type="button" class="primary" data-roll="${esc(name)}">ここで成長判定を振る</button><button type="button" data-cmd="${esc(name)}">チャパレ用コマンドをコピー</button><button type="button" data-sum="${esc(name)}" ${done ? '' : 'disabled'}>結果をコピー</button></div></article>`;
+    html += `<div class="pc-foot"><button type="button" class="primary" data-roll="${esc(name)}">ここで成長判定を振る</button><button type="button" data-cmd="${esc(name)}">判定用コマンドをコピー</button><button type="button" data-sum="${esc(name)}" ${done ? '' : 'disabled'}>結果をコピー</button></div></article>`;
   }
   box.innerHTML = html || `<div class="empty">${R.cats.size ? '対象の出目が出た技能はありません。' : '対象を1つ以上選んでください。'}</div>`;
 }
@@ -410,13 +410,16 @@ document.addEventListener('click', e => {
     const R = getRules();
     const lines = (last.items[t.dataset.cmd] || []).map(it => cmdFor(it, R)).filter(Boolean);
     if(!lines.length) return toast('対象の技能がありません');
+    copy(t.dataset.cmd + '\n' + lines.join('\n'));
+  } else if(t.id === 'copyRules'){
+    const R = getRules();
     const MODE = {over:'技能値超で成長', under:'技能値以下で成長', auto:'判定なしで成長', none:'成長しない'};
     const LABEL = {crit:'決定的成功', fumble:'致命的失敗', special:'スペシャル', success:'成功', fail:'失敗'};
     const notes = [];
     if(R.fxVals.trim()) notes.push(`※出目${R.fxVals.trim()}：判定なしで成長（${R.fxAmt}）`);
     CATS.filter(c => last.cats.has(c)).forEach(c => notes.push(`※${LABEL[c]}：${MODE[R.m[c]]}${R.m[c] === 'none' ? '' : `（${R.a[c]}）`}`));
     if(R.cfOn) notes.push(`※成長判定の出目が${R.cfCrit}以下/${R.cfFum}以上なら ${R.cfAmt}`);
-    copy(lines.join('\n') + '\n\n' + notes.join('\n'));
+    copy(notes.join('\n'));
   } else if(t.dataset.sum){
     const lines = (last.items[t.dataset.sum] || []).map(it => {
       const r = it.rl; if(!r) return null;
@@ -456,5 +459,3 @@ loadFile($('#fileA'), '#logA'); loadFile($('#fileB'), '#logB');
 loadRules();
 render();
 </script>
-
-</body></html>
