@@ -1,0 +1,322 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>チャパレ成長チェッカー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: 探索者手帳風。上に入力2枚（前／後）、下に成長結果の表。狭い画面では1列 */
+:root {
+  --bg: #eceff1;
+  --surface: #f7f9f9;
+  --ink: #1e2328;
+  --muted: #5d676f;
+  --line: #d4dade;
+  --accent: #456b7e;
+  --accent-soft: #dfe7eb;
+  --up: #3f6e5a;
+  --up-soft: #e0ebe5;
+  --down: #9a4a4a;
+  --down-soft: #f1e2e1;
+  --new: #7a6634;
+  --new-soft: #efe9da;
+  --font-display: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16191c; --surface: #1f2428; --ink: #e6e9eb; --muted: #9aa4ab; --line: #333b41;
+    --accent: #7fa6b8; --accent-soft: #24323a; --up: #8cc1a6; --up-soft: #1e2d26;
+    --down: #d99a96; --down-soft: #352223; --new: #d3bd85; --new-soft: #322c1e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16191c; --surface: #1f2428; --ink: #e6e9eb; --muted: #9aa4ab; --line: #333b41;
+  --accent: #7fa6b8; --accent-soft: #24323a; --up: #8cc1a6; --up-soft: #1e2d26;
+  --down: #d99a96; --down-soft: #352223; --new: #d3bd85; --new-soft: #322c1e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+header h1 {
+  font-family: var(--font-display); font-weight: 800; font-size: clamp(24px, 4vw, 32px);
+  margin: 0; letter-spacing: .02em; text-wrap: balance;
+}
+header p { margin: 4px 0 0; color: var(--muted); max-width: 62ch; }
+.inputs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: stretch; }
+.pane { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pane label { font-weight: 700; font-size: 13px; letter-spacing: .08em; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; }
+.pane label span.count { font-weight: 500; letter-spacing: 0; font-family: var(--font-mono); font-size: 12px; }
+textarea {
+  width: 100%; min-height: 220px; resize: vertical;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.55;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+}
+input[type=checkbox] { accent-color: var(--accent); }
+textarea:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.swap { align-self: center; }
+button {
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 8px; padding: 7px 12px;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; padding: 8px 18px; }
+button.primary:hover { filter: brightness(1.08); color: #fff; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.toolbar .opts { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
+.toolbar .opts label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.toolbar .spacer { flex: 1; }
+.summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-size: 13px; padding: 3px 10px; border-radius: 999px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chip.up { background: var(--up-soft); color: var(--up); }
+.chip.down { background: var(--down-soft); color: var(--down); }
+.chip.new { background: var(--new-soft); color: var(--new); }
+.chip.total { background: var(--accent-soft); color: var(--accent); }
+.result { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 12px; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+tbody tr:last-child td { border-bottom: none; }
+td.num, th.num { text-align: right; font-family: var(--font-mono); }
+td.name { font-weight: 700; white-space: normal; }
+td.arrow { color: var(--muted); text-align: center; padding-inline: 0; width: 1px; }
+td.delta { font-family: var(--font-mono); font-weight: 700; text-align: right; }
+tr.up td.delta { color: var(--up); }
+tr.down td.delta { color: var(--down); }
+tr.new td.delta, tr.gone td.delta { color: var(--new); font-family: var(--font-body); font-size: 13px; }
+tr.up { box-shadow: inset 3px 0 0 var(--up); }
+tr.down { box-shadow: inset 3px 0 0 var(--down); }
+tr.new, tr.gone { box-shadow: inset 3px 0 0 var(--new); }
+td.act { width: 1px; padding-left: 4px; }
+.rowcopy { font-size: 12px; padding: 3px 0; font-weight: 500; width: 6.5em; text-align: center; white-space: nowrap; }
+.rowcopy.done { border-color: var(--up); color: var(--up); }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); }
+.textout { display: flex; flex-direction: column; gap: 6px; }
+.textout pre {
+  margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; font-family: var(--font-mono); font-size: 13px; white-space: pre-wrap; overflow-x: auto;
+}
+.textout .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.textout .head span { font-weight: 700; font-size: 13px; letter-spacing: .08em; color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); }
+.toast { font-size: 13px; color: var(--accent); min-height: 1em; }
+@media (max-width: 680px) {
+  .inputs { grid-template-columns: 1fr; }
+  .swap { justify-self: center; }
+  textarea { min-height: 160px; }
+}
+</style>
+
+<div class="wrap">
+  <a href="./" style="display:inline-block;margin-bottom:6px;font-size:13px;color:var(--muted);text-decoration:none">← ツール一覧</a>
+  <header>
+    <h1>チャパレ成長チェッカー</h1>
+    <p>成長前と成長後のチャットパレットを貼ると、技能値が上がった技能と成長値を一覧にします。<code>CCB&lt;=70 【目星】</code> のような行から技能名と数値を読み取ります。</p>
+  </header>
+
+  <section class="inputs">
+    <div class="pane">
+      <label for="paletteBefore">成長前 <span class="count" id="countBefore"></span></label>
+      <textarea id="paletteBefore" autocomplete="off" spellcheck="false" placeholder="CCB<=25 【目星】&#10;CCB<=40 【聞き耳】&#10;…"></textarea>
+    </div>
+    <button class="swap" id="swap" type="button" title="前後を入れ替え">⇄ 入替</button>
+    <div class="pane">
+      <label for="paletteAfter">成長後 <span class="count" id="countAfter"></span></label>
+      <textarea id="paletteAfter" autocomplete="off" spellcheck="false" placeholder="CCB<=32 【目星】&#10;CCB<=46 【聞き耳】&#10;…"></textarea>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <div class="opts">
+      <label><input type="checkbox" id="showDown" checked> 下がった技能も表示</label>
+      <label><input type="checkbox" id="showNew" checked> 追加・削除された技能も表示</label>
+    </div>
+    <div class="spacer"></div>
+    <button type="button" id="clear">両方クリア</button>
+  </div>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="result" id="result"></div>
+
+  <div class="textout">
+    <div class="head">
+      <span>テキストで出力</span>
+      <button type="button" class="primary" id="copy">コピー</button>
+    </div>
+    <pre id="textout"></pre>
+    <div class="toast" id="toast" role="status"></div>
+  </div>
+
+  <p class="note">同じ技能名が複数行ある場合は最初の行の値を使います。数値の入っていない行（<code>{SAN}</code> などの変数参照や能力値ロール）は読み飛ばします。</p>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const beforeEl = $("paletteBefore"), afterEl = $("paletteAfter");
+
+function normalize(s) {
+  // 全角数字・記号を半角に寄せる
+  return s.replace(/[０-９＜＝（）]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+}
+
+function parsePalette(text) {
+  const map = new Map();
+  for (const raw of text.split(/\r?\n/)) {
+    const line = normalize(raw).trim();
+    if (!line) continue;
+    const m = line.match(/<=\s*\(?\s*(\d+)\s*\)?/);
+    if (!m) continue;
+    const value = parseInt(m[1], 10);
+    let name = "";
+    const br = line.match(/【([^】]+)】/);
+    if (br) {
+      name = br[1].trim();
+    } else {
+      const rest = line.slice(m.index + m[0].length).trim();
+      name = rest.replace(/^[\s:：#]+/, "").split(/\s+#/)[0].trim();
+    }
+    if (!name) continue;
+    if (!map.has(name)) map.set(name, value);
+  }
+  return map;
+}
+
+function diff(before, after) {
+  const rows = [];
+  for (const [name, v] of after) {
+    if (before.has(name)) {
+      const b = before.get(name);
+      rows.push({ name, before: b, after: v, delta: v - b, kind: v > b ? "up" : v < b ? "down" : "same" });
+    } else {
+      rows.push({ name, before: null, after: v, delta: null, kind: "new" });
+    }
+  }
+  for (const [name, b] of before) {
+    if (!after.has(name)) rows.push({ name, before: b, after: null, delta: null, kind: "gone" });
+  }
+  return rows;
+}
+
+function esc(s) {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+function render() {
+  const b = parsePalette(beforeEl.value);
+  const a = parsePalette(afterEl.value);
+  $("countBefore").textContent = b.size ? `${b.size} 技能` : "";
+  $("countAfter").textContent = a.size ? `${a.size} 技能` : "";
+
+  const all = diff(b, a);
+  const showDown = $("showDown").checked, showNew = $("showNew").checked;
+  const rows = all.filter((r) =>
+    r.kind === "up" || (showDown && r.kind === "down") || (showNew && (r.kind === "new" || r.kind === "gone")));
+
+  const ups = all.filter((r) => r.kind === "up");
+  const downs = all.filter((r) => r.kind === "down");
+  const news = all.filter((r) => r.kind === "new");
+  const gones = all.filter((r) => r.kind === "gone");
+  const total = ups.reduce((s, r) => s + r.delta, 0);
+
+  const chips = [];
+  if (ups.length) chips.push(`<span class="chip up">成長 ${ups.length} 技能</span>`, `<span class="chip total">合計 +${total}</span>`);
+  if (downs.length) chips.push(`<span class="chip down">減少 ${downs.length}</span>`);
+  if (news.length) chips.push(`<span class="chip new">追加 ${news.length}</span>`);
+  if (gones.length) chips.push(`<span class="chip new">削除 ${gones.length}</span>`);
+  $("summary").innerHTML = chips.join("");
+
+  if (!b.size || !a.size) {
+    $("result").innerHTML = `<div class="empty">成長前と成長後の両方にチャパレを貼ってください。</div>`;
+    $("textout").textContent = "";
+    return;
+  }
+  if (!rows.length) {
+    $("result").innerHTML = `<div class="empty">変化した技能はありません。</div>`;
+    $("textout").textContent = "変化なし";
+    return;
+  }
+
+  const fmt = (v) => (v === null ? "—" : v);
+  $("result").innerHTML = `<table>
+    <thead><tr><th>技能</th><th class="num">成長前</th><th></th><th class="num">成長後</th><th class="num">成長値</th><th></th></tr></thead>
+    <tbody>${rows.map((r) => {
+      const d = r.kind === "new" ? "追加" : r.kind === "gone" ? "削除" : (r.delta > 0 ? "+" : "") + r.delta;
+      return `<tr class="${r.kind}"><td class="name">${esc(r.name)}</td><td class="num">${fmt(r.before)}</td><td class="arrow">→</td><td class="num">${fmt(r.after)}</td><td class="delta">${d}</td><td class="act"><button type="button" class="rowcopy" data-text="${esc(String(d))}" aria-label="${esc(r.name)}をコピー">コピー</button></td></tr>`;
+    }).join("")}</tbody></table>`;
+
+  $("textout").textContent = rows.map(lineText).join("\n") + (ups.length ? `\n成長合計 +${total}` : "");
+}
+
+function lineText(r) {
+  if (r.kind === "new") return `${r.name} 新規 ${r.after}`;
+  if (r.kind === "gone") return `${r.name} ${r.before} → 削除`;
+  return `${r.name} ${r.before} → ${r.after}（${r.delta > 0 ? "+" : ""}${r.delta}）`;
+}
+
+$("result").addEventListener("click", (e) => {
+  const btn = e.target.closest(".rowcopy");
+  if (!btn) return;
+  const text = btn.dataset.text;
+  const ok = () => {
+    btn.textContent = "✓ コピー済"; btn.classList.add("done");
+    setTimeout(() => { btn.textContent = "コピー"; btn.classList.remove("done"); }, 1500);
+  };
+  const fallback = () => {
+    const cell = btn.closest("tr");
+    const r = document.createRange(); r.selectNodeContents(cell);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    btn.textContent = "選択済";
+    setTimeout(() => { btn.textContent = "コピー"; }, 1500);
+  };
+  try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (err) { fallback(); }
+});
+
+function save() {}
+
+function load() {
+  // 以前の版で保存していた内容を消し、常に空欄で始める
+  try { localStorage.removeItem("palette-growth"); } catch (e) {}
+  beforeEl.value = "";
+  afterEl.value = "";
+}
+
+[beforeEl, afterEl].forEach((el) => el.addEventListener("input", () => { render(); save(); }));
+$("showDown").addEventListener("change", render);
+$("showNew").addEventListener("change", render);
+$("swap").addEventListener("click", () => {
+  [beforeEl.value, afterEl.value] = [afterEl.value, beforeEl.value];
+  render(); save();
+});
+$("clear").addEventListener("click", () => {
+  beforeEl.value = ""; afterEl.value = "";
+  render(); save(); beforeEl.focus();
+});
+$("copy").addEventListener("click", () => {
+  const text = $("textout").textContent;
+  const done = (msg) => { $("toast").textContent = msg; setTimeout(() => ($("toast").textContent = ""), 2000); };
+  const fallback = () => {
+    const r = document.createRange(); r.selectNodeContents($("textout"));
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    done("選択しました。コピーしてください");
+  };
+  try {
+    navigator.clipboard.writeText(text).then(() => done("コピーしました"), fallback);
+  } catch (e) { fallback(); }
+});
+
+load();
+render();
+</script>
+
+</body></html>

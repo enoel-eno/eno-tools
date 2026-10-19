@@ -1,0 +1,460 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>成長判定ツール</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: 左に貼り付け欄＋設定、右に探索者ごとの成長判定表（スマホでは縦積み） */
+:root{
+  --bg:#eaedef; --surface:#f6f8f9; --ink:#1e2427; --muted:#6a7378; --line:#d3d9dd;
+  --accent:#3f6679; --accent-ink:#f3f7f9; --crit:#a4473f; --soft:#e2e8eb; --warn:#7c6430;
+  --grow:#3f6679; --grow-bg:#dde7ec; --crit-bg:#f2e2e0; --warn-bg:#efe9dc;
+  --f-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14181b; --surface:#1c2226; --ink:#e2e7ea; --muted:#929ca2; --line:#2e363b;
+  --accent:#88b0c4; --accent-ink:#11191e; --crit:#df8a80; --soft:#232b30; --warn:#d2b77a;
+  --grow:#88b0c4; --grow-bg:#22323b; --crit-bg:#3a2624; --warn-bg:#352e20; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14181b; --surface:#1c2226; --ink:#e2e7ea; --muted:#929ca2; --line:#2e363b;
+  --accent:#88b0c4; --accent-ink:#11191e; --crit:#df8a80; --soft:#232b30; --warn:#d2b77a;
+  --grow:#88b0c4; --grow-bg:#22323b; --crit-bg:#3a2624; --warn-bg:#352e20; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;margin-bottom:22px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(26px,4vw,34px);margin:0;letter-spacing:.04em;text-wrap:balance}
+header p{margin:0;color:var(--muted);font-size:14px}
+.grid{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{display:flex;flex-direction:column;gap:16px;min-width:0}
+.field{display:flex;flex-direction:column;gap:6px}
+.lab{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700;font-size:14px}
+.lab small{font-weight:400;color:var(--muted);font-size:12px}
+textarea{width:100%;box-sizing:border-box;min-height:180px;resize:vertical;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-family:var(--f-mono);font-size:12px;line-height:1.55;padding:10px}
+#logB{min-height:110px}
+textarea:focus,input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+button,.filebtn{font-family:var(--f-body);font-size:13px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:5px;padding:5px 11px;cursor:pointer}
+button:hover,.filebtn:hover{border-color:var(--accent)}
+.filebtn input{display:none}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;border-radius:6px}
+input[type=checkbox]{accent-color:var(--accent)}
+.tag{font-size:11px;padding:1px 7px;border-radius:99px;background:var(--soft);color:var(--muted);font-weight:500}
+.tag.sample{color:var(--warn);background:var(--warn-bg)}
+fieldset{border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:0;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px}
+legend{font-size:12px;color:var(--muted);padding:0 4px}
+fieldset label{display:flex;align-items:center;gap:5px;cursor:pointer}
+.status{font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
+.status b{color:var(--ink);font-family:var(--f-mono)}
+.results{display:flex;flex-direction:column;gap:18px;min-width:0}
+.pc{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.pc-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 14px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.pc-head h2{font-family:var(--f-display);font-weight:800;font-size:20px;margin:0;letter-spacing:.03em}
+.pc-head .meta{font-size:12px;font-weight:700;color:var(--grow);background:var(--grow-bg);border-radius:99px;padding:2px 10px}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;min-width:600px;table-layout:fixed;border-collapse:collapse;font-size:14px}
+td{height:40px;box-sizing:border-box}
+.val-text{display:inline-block;width:54px;font-family:var(--f-mono);font-size:14px;text-align:right;padding:3px 6px;color:var(--muted)}
+.roll .d{font-family:var(--f-mono)}
+button:disabled{opacity:.45;cursor:default}
+th{font-size:11px;font-weight:500;color:var(--muted);text-align:left;padding:7px 10px;letter-spacing:.06em;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.skill{font-weight:700}
+.hint{display:block;font-size:11px;color:var(--muted);font-weight:400}
+input.val{width:54px;font-family:var(--f-mono);font-size:14px;text-align:right;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);padding:3px 5px}
+.dice{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-size:12px;border:1px solid var(--line);border-radius:4px;padding:0 6px;white-space:nowrap;color:var(--muted)}
+.chip b{font-family:var(--f-mono);font-variant-numeric:tabular-nums;margin-right:3px}
+.chip.hit{color:var(--ink);border-color:var(--accent)}
+.chip.c-crit.hit{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+.chip.c-fumble.hit{background:var(--crit-bg);border-color:var(--crit);color:var(--crit)}
+tbody td:first-child{border-left:3px solid transparent}
+tr.r-grow td:first-child{border-left-color:var(--grow)}
+tr.r-none td:first-child{border-left-color:var(--line)}
+.roll{font-family:var(--f-mono);font-size:13px;white-space:nowrap;display:block;overflow:hidden;text-overflow:ellipsis}
+.roll .ok{color:var(--grow);font-weight:700}
+.roll .ng{color:var(--muted)}
+.gain{display:inline-block;background:var(--grow-bg);color:var(--grow);border-radius:4px;padding:0 6px;font-weight:700;margin-left:4px}
+.pc-foot{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
+details.ex{padding:8px 16px 12px;font-size:13px;color:var(--muted);border-top:1px dashed var(--line)}
+details.ex summary{cursor:pointer}
+details.ex button{font-size:12px;padding:2px 8px}
+.rules{flex-direction:column;flex-wrap:nowrap;gap:8px}
+.presets{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.presets button{font-size:12px;padding:2px 9px}
+.rl-head,.rl-grid{display:grid;grid-template-columns:5.6em minmax(0,1fr) 5.4em;gap:6px 8px;align-items:center}
+.rl-head{font-size:11px;color:var(--muted);letter-spacing:.04em}
+.rl-name{font-size:13px;font-weight:500}
+.rl-check{display:flex;align-items:center;gap:4px;cursor:pointer}
+.rules select,.rules .amt{font-family:var(--f-body);font-size:13px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--ink);padding:3px 5px;min-width:0;width:100%;box-sizing:border-box}
+.rules .amt{font-family:var(--f-mono)}
+.rules .num2{width:3.6em;margin:0 3px}
+.rl-cf{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:13px;border-top:1px dashed var(--line);padding-top:8px}
+.rl-cf .amt:not(.num2){width:6em}
+.roll .tag2{font-size:11px;color:var(--warn);background:var(--warn-bg);border-radius:3px;padding:0 4px;margin-right:3px;font-family:var(--f-body)}
+.ex-list{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.ex-list li{display:grid;grid-template-columns:minmax(80px,auto) 40px minmax(0,1fr) auto auto;align-items:center;gap:6px 10px;color:var(--ink)}
+.ex-list .skill{font-weight:700}
+.ex-dice{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.ex-n{font-size:12px;color:var(--muted);white-space:nowrap}
+@media (max-width:480px){.ex-list li{grid-template-columns:auto 40px minmax(0,1fr)}.ex-n{grid-column:1/3}}
+.empty{border:1px dashed var(--line);border-radius:8px;padding:28px 20px;color:var(--muted);text-align:center}
+.copied{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:7px 16px;border-radius:6px;font-size:13px}
+.note{font-size:12px;color:var(--muted);margin:0}
+@media (prefers-reduced-motion:no-preference){.roll span{transition:color .2s}}
+</style>
+
+<div class="wrap">
+  <a href="./" style="display:inline-block;margin-bottom:6px;font-size:13px;color:var(--muted);text-decoration:none">← ツール一覧</a>
+  <header>
+    <h1>成長判定ツール</h1>
+    <p>ログを貼ると、対象の出目が出た技能を探索者ごとに拾って成長判定します。</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-label="ログ入力">
+      <div class="field">
+        <div class="lab"><label for="logA">ログ</label></div>
+        <textarea id="logA" spellcheck="false" placeholder="ココフォリアのログ（HTMLのまま、または表示をコピーしたテキスト）を貼り付け"></textarea>
+        <div class="tools">
+          <label class="filebtn">ファイルを開く<input type="file" id="fileA" accept=".html,.htm,.txt"></label>
+          <button type="button" id="clearA">クリア</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="lab"><label for="logB">比較用ログ <small>任意</small></label></div>
+        <textarea id="logB" spellcheck="false" placeholder="もう一つ貼ると差分で判定します。例：前回セッションまでのログ"></textarea>
+        <div class="tools">
+          <label class="filebtn">ファイルを開く<input type="file" id="fileB" accept=".html,.htm,.txt"></label>
+          <button type="button" id="clearB">クリア</button>
+        </div>
+        <p class="note">2つ貼ると、発言数の多い方にだけある行（＝新しく増えた部分）で判定します。</p>
+      </div>
+      <fieldset class="rules">
+        <legend>成長ルール</legend>
+        <div class="presets"><span class="note">プリセット</span><button type="button" data-preset="std">標準</button><button type="button" data-preset="eno">eNo卓</button></div>
+        <div class="rl-head"><span>元のダイス結果</span><span>扱い</span><span>成長量</span></div>
+        <div class="rl-grid">
+          <label class="rl-name" for="fx-vals">出目</label><input id="fx-vals" class="amt wide" value="1,100" aria-label="判定なしで成長する出目（カンマ区切り）"><input id="fx-amt" class="amt" value="1D10" aria-label="指定出目の成長量">
+          <span class="rl-name">決定的成功</span><select id="m-crit" aria-label="決定的成功の扱い"><option value="over">技能値超で成長</option><option value="under">技能値以下で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-crit" class="amt" value="1D10" aria-label="決定的成功の成長量">
+          <span class="rl-name">致命的失敗</span><select id="m-fumble" aria-label="致命的失敗の扱い"><option value="over">技能値超で成長</option><option value="under">技能値以下で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-fumble" class="amt" value="1D10" aria-label="致命的失敗の成長量">
+          <span class="rl-name">スペシャル</span><select id="m-special" aria-label="スペシャルの扱い"><option value="over">技能値超で成長</option><option value="under">技能値以下で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-special" class="amt" value="1D10" aria-label="スペシャルの成長量">
+          <span class="rl-name">成功</span><select id="m-success" aria-label="成功の扱い"><option value="over">技能値超で成長</option><option value="under">技能値以下で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-success" class="amt" value="1D10" aria-label="成功の成長量">
+          <span class="rl-name">失敗</span><select id="m-fail" aria-label="失敗の扱い"><option value="over">技能値超で成長</option><option value="under">技能値以下で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-fail" class="amt" value="1D10" aria-label="失敗の成長量">
+        </div>
+        <div class="rl-cf">
+          <label class="rl-check"><input type="checkbox" id="cf-on"> 成長判定の出目が</label>
+          <span><input id="cf-crit" class="amt num2" type="number" min="0" max="100" value="5" aria-label="クリティカルの上限">以下 / <input id="cf-fum" class="amt num2" type="number" min="1" max="101" value="96" aria-label="ファンブルの下限">以上なら</span>
+          <span>成長量 <input id="cf-amt" class="amt" value="1D10+1" aria-label="クリファン時の成長量"></span>
+        </div>
+        <p class="note">上から順に適用します。「出目」は元のロールの出目が一致したとき、判定なしで成長します（空欄なら使いません）。成長量は 1D10・1D10+1・2D6・5 などで書けます。</p>
+      </fieldset>
+      <fieldset>
+        <legend>対象</legend>
+        <label><input type="checkbox" class="cat" id="cat-crit" value="crit" checked> 決定的成功</label>
+        <label><input type="checkbox" class="cat" id="cat-fumble" value="fumble" checked> 致命的失敗</label>
+        <label><input type="checkbox" class="cat" id="cat-special" value="special"> スペシャル</label>
+        <label><input type="checkbox" class="cat" id="cat-success" value="success"> 成功</label>
+        <label><input type="checkbox" class="cat" id="cat-fail" value="fail"> 失敗</label>
+      </fieldset>
+      <fieldset>
+        <legend>ダイス</legend>
+        <label><input type="checkbox" id="showSecret" checked> シークレットダイスも含める</label>
+      </fieldset>
+      <div class="status" id="status"></div>
+    </section>
+
+    <section class="results" id="results" aria-live="polite"></section>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const EXCLUDE = /^(SAN|SAN値|正気度|SANチェック|正気度ロール|アイデア|幸運|知識|クトゥルフ神話|STR|CON|POW|DEX|APP|SIZ|INT|EDU)$|[×xX*]\s*\d+$/i;
+const CMD = /(S?)(CCB|CC)(?:\(?[-+]?\d+\)?)?\s*<=\s*([^\s(（【]+)/i;
+
+// state
+let manualVal = {};   // key -> number
+let include = {};     // key -> bool (manual override)
+let rolls = {};       // key -> {d100, ok, gain}
+
+function d(n){ const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n + 1; }
+
+function toEntries(text){
+  if(!text.trim()) return [];
+  if(/<p[\s>]/i.test(text)){
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    return [...doc.querySelectorAll('p')].map(p => p.textContent.replace(/\s+/g,' ').trim()).filter(Boolean);
+  }
+  return text.split(/\r?\n/).map(s => s.replace(/\s+/g,' ').trim()).filter(Boolean);
+}
+
+function parseRoll(line){
+  const m = CMD.exec(line);
+  if(!m) return null;
+  const parts = line.slice(m.index).split(/＞|→/);
+  if(parts.length < 3) return null;
+  const result = parts[parts.length-1].trim();
+  let name = line.slice(0, m.index).replace(/^\s*\[[^\]]*\]\s*/,'').replace(/[\s:：]+$/,'').trim() || '名前なし';
+  const rest = line.slice(m.index + m[0].length);
+  let skill = (rest.match(/【([^】]+)】/) || [])[1];
+  if(!skill) skill = rest.split(/\(1D100|（1D100|\(/i)[0].trim();
+  skill = (skill || '技能名なし').trim();
+  const vm = line.match(/\(1D100<=(\d+)\)/i);
+  const value = vm ? +vm[1] : (parseInt(m[3]) || 0);
+  const die = parseInt(parts[parts.length-2]);
+  let cat = null;
+  if(/致命的失敗|ファンブル/.test(result)) cat = 'fumble';
+  else if(/決定的成功|クリティカル/.test(result)) cat = 'crit';
+  else if(/失敗/.test(result)) cat = 'fail';
+  else if(/スペシャル/.test(result)) cat = 'special';
+  else if(/成功/.test(result)) cat = 'success';
+  if(!cat) return null;
+  return {name, skill, value, die: isNaN(die) ? '?' : die, cat, result, sys: m[2].toUpperCase()==='CCB' ? 6 : 7, secret: m[1].toUpperCase()==='S'};
+}
+
+function diffEntries(a, b){
+  const [big, small] = a.length >= b.length ? [a, b] : [b, a];
+  const cnt = new Map();
+  small.forEach(e => cnt.set(e, (cnt.get(e)||0) + 1));
+  const out = [];
+  big.forEach(e => { const c = cnt.get(e)||0; if(c>0) cnt.set(e, c-1); else out.push(e); });
+  return {out, bigIsA: big === a};
+}
+
+function analyze(){
+  const A = toEntries($('#logA').value), B = toEntries($('#logB').value);
+  let entries = A, mode = 'single', note = '';
+  if(A.length && B.length){
+    const r = diffEntries(A, B);
+    entries = r.out; mode = 'diff';
+    note = `差分モード：${r.bigIsA ? 'ログ' : '比較用ログ'}にだけある <b>${entries.length}</b> 行で判定`;
+  } else if(!A.length && B.length){ entries = B; }
+  const cats = new Set([...document.querySelectorAll('.cat:checked')].map(x=>x.value));
+  const secretOk = $('#showSecret').checked;
+  const pcs = new Map(); let rollCount = 0, sysVotes = {6:0,7:0};
+  entries.forEach(line => {
+    const r = parseRoll(line); if(!r) return;
+    if(r.secret && !secretOk) return;
+    rollCount++; sysVotes[r.sys]++;
+    if(!pcs.has(r.name)) pcs.set(r.name, new Map());
+    const sk = pcs.get(r.name);
+    if(!sk.has(r.skill)) sk.set(r.skill, {values:new Map(), rolls:[]});
+    const s = sk.get(r.skill);
+    s.values.set(r.value, (s.values.get(r.value)||0)+1);
+    s.rolls.push(r);
+  });
+  return {pcs, mode, note, rollCount, lines: entries.length, cats, rules: getRules()};
+}
+
+function pickValue(values){
+  let best = null, bc = -1;
+  [...values.entries()].sort((a,b)=>a[0]-b[0]).forEach(([v,c]) => { if(c > bc){ best = v; bc = c; } });
+  return best;
+}
+
+let last = null;
+function render(){
+  const R = last = analyze();
+  const st = $('#status');
+  st.innerHTML = (R.note ? R.note + '<br>' : `${R.lines ? `<b>${R.lines}</b> 行を読み込み` : 'ログ未入力'}<br>`) +
+    `技能ロール <b>${R.rollCount}</b> 件`;
+
+  const box = $('#results');
+  if(!R.rollCount){
+    box.innerHTML = `<div class="empty">${R.lines ? '技能ロール（CCB&lt;=〇〇 / CC&lt;=〇〇）が見つかりませんでした。' : '左にココフォリアのログを貼ると、ここに探索者ごとの成長候補が並びます。'}</div>`;
+    return;
+  }
+  let html = '';
+  let idx = 0;
+  const LABEL = {crit:'決定的成功', fumble:'致命的失敗', special:'スペシャル', success:'成功', fail:'失敗'};
+  R.items = {};
+  for(const [name, skills] of R.pcs){
+    const rows = [], excluded = [];
+    for(const [skill, s] of skills){
+      const key = name + '\u0001' + skill;
+      const hits = s.rolls.map((x, i) => ({x, i})).filter(o => R.cats.has(o.x.cat));
+      if(!hits.length) continue;
+      const auto = !EXCLUDE.test(skill.replace(/\s/g,''));
+      if(!auto && !include[key]){ excluded.push({skill, key, hits, value: pickValue(s.values)}); continue; }
+      const pv = pickValue(s.values);
+      const base = manualVal[key] ?? pv;
+      const others = [...s.values.keys()].filter(v => v !== pv);
+      let cur = base;
+      hits.forEach((o, n) => {
+        const rowKey = key + '\u0002' + o.i;
+        const rl = rolls[rowKey];
+        rows.push({rowKey, key, skill, roll: o.x, first: n === 0, base, rowVal: cur, others, rl});
+        if(rl) cur += rl.gain;
+      });
+    }
+    if(!rows.length && !excluded.length) continue;
+    R.items[name] = rows;
+    const pid = 'pc' + (idx++);
+    const done = rows.some(r => r.rl);
+    html += `<article class="pc" data-name="${esc(name)}"><div class="pc-head"><h2>${esc(name)}</h2><span class="meta">成長候補 ${rows.length} 件</span></div>`;
+    if(rows.length){
+      html += `<div class="tbl-wrap"><table><colgroup><col><col style="width:84px"><col style="width:150px"><col style="width:250px"></colgroup><thead><tr><th>技能</th><th class="num">技能値</th><th>ダイス結果</th><th>成長判定</th></tr></thead><tbody>`;
+      rows.forEach((r, ri) => {
+        const rl = r.rl;
+        const rollCell = rollHtml(rl, r.rowVal);
+        const valCell = r.first
+          ? `<input class="val" type="number" min="0" max="999" id="v-${pid}-${ri}" data-val="${esc(r.key)}" value="${r.base}" aria-label="${esc(r.skill)}の技能値">`
+          : `<span class="val-text">${r.rowVal}</span>`;
+        html += `<tr class="${rl ? (rl.gain > 0 ? 'r-grow' : 'r-none') : ''}">
+          <td><span class="skill">${esc(r.skill)}</span>${r.first && r.others.length ? `<span class="hint">ログ上の他の値：${r.others.join(', ')}</span>` : ''}</td>
+          <td class="num">${valCell}</td>
+          <td><span class="chip c-${r.roll.cat} hit"><b>${r.roll.die}</b>${LABEL[r.roll.cat]}</span></td>
+          <td>${rollCell}</td></tr>`;
+      });
+      html += `</tbody></table></div>`;
+    }
+    if(excluded.length){
+      const exCount = excluded.reduce((n, x) => n + x.hits.length, 0);
+      html += `<details class="ex"><summary>通常は成長しない技能 ${exCount} 件（${excluded.length} 技能）</summary><ul class="ex-list">${excluded.map(x => `<li><span class="skill">${esc(x.skill)}</span><span class="num">${x.value}</span><span class="ex-dice">${x.hits.map(o => `<span class="chip c-${o.x.cat} hit"><b>${o.x.die}</b>${LABEL[o.x.cat]}</span>`).join('')}</span><span class="ex-n">${x.hits.length}件</span><button type="button" data-add="${esc(x.key)}">一覧に追加</button></li>`).join('')}</ul></details>`;
+    }
+    html += `<div class="pc-foot"><button type="button" class="primary" data-roll="${esc(name)}">ここで成長判定を振る</button><button type="button" data-cmd="${esc(name)}">チャパレ用コマンドをコピー</button><button type="button" data-sum="${esc(name)}" ${done ? '' : 'disabled'}>結果をコピー</button></div></article>`;
+  }
+  box.innerHTML = html || `<div class="empty">${R.cats.size ? '対象の出目が出た技能はありません。' : '対象を1つ以上選んでください。'}</div>`;
+}
+
+const CATS = ['crit','fumble','special','success','fail'];
+const PRESETS = {
+  std:   {fxVals:'', fxAmt:'1D10', m:{crit:'over',fumble:'over',special:'over',success:'over',fail:'over'}, a:{}, cfOn:false, cfCrit:5, cfFum:96, cfAmt:'1D10+1'},
+  eno:   {fxVals:'1,100', fxAmt:'1D10', m:{crit:'over',fumble:'over',special:'none',success:'none',fail:'none'}, a:{}, cfOn:true, cfCrit:5, cfFum:96, cfAmt:'1D10+1'}
+};
+function setRules(p){
+  $('#fx-vals').value = p.fxVals ?? ''; $('#fx-amt').value = p.fxAmt;
+  CATS.forEach(c => { $('#m-'+c).value = p.m[c] || 'over'; $('#a-'+c).value = (p.a && p.a[c]) || '1D10'; });
+  $('#cf-on').checked = p.cfOn; $('#cf-crit').value = p.cfCrit; $('#cf-fum').value = p.cfFum; $('#cf-amt').value = p.cfAmt;
+}
+function getRules(){
+  const p = {fxVals: $('#fx-vals').value, fxAmt: $('#fx-amt').value, m:{}, a:{},
+    cfOn: $('#cf-on').checked, cfCrit: +$('#cf-crit').value || 0, cfFum: +$('#cf-fum').value || 101, cfAmt: $('#cf-amt').value};
+  CATS.forEach(c => { p.m[c] = $('#m-'+c).value; p.a[c] = $('#a-'+c).value; });
+  return p;
+}
+function saveRules(){ try{ localStorage.setItem('growthRules', JSON.stringify(getRules())); }catch(e){} }
+function loadRules(){
+  let p = null; try{ p = JSON.parse(localStorage.getItem('growthRules')); }catch(e){}
+  setRules(p && p.m ? p : PRESETS.std);
+}
+function rollExpr(expr){
+  const t = String(expr).replace(/\s/g,'').toUpperCase().replace(/Ｄ/g,'D').replace(/＋/g,'+').replace(/[－ー]/g,'-');
+  const m = t.match(/^(\d*)D(\d+)([+-]\d+)?$/);
+  if(m){ let sum = 0; const n = +(m[1]||1); for(let i=0;i<n;i++) sum += d(+m[2]); return sum + (+(m[3]||0)); }
+  const k = parseInt(t); return isNaN(k) ? d(10) : k;
+}
+function judge(row, v, R){
+  const fx = R.fxVals.split(/[,、\s]+/).filter(Boolean).map(Number).filter(n => !isNaN(n));
+  if(fx.includes(row.die)) return {kind:'auto', tag:`出目${row.die}`, expr:R.fxAmt, gain: rollExpr(R.fxAmt)};
+  const mode = R.m[row.cat];
+  if(mode === 'none') return {kind:'none', gain:0};
+  if(mode === 'auto') return {kind:'auto', tag:'', expr:R.a[row.cat], gain: rollExpr(R.a[row.cat])};
+  const g = d(100);
+  if(R.cfOn && (g <= R.cfCrit || g >= R.cfFum)) return {kind:'check', d100:g, tag: g <= R.cfCrit ? 'クリ' : 'ファン', expr:R.cfAmt, gain: rollExpr(R.cfAmt)};
+  const ok = mode === 'under' ? g <= v : g > v;
+  return {kind:'check', d100:g, tag:'', expr:R.a[row.cat], gain: ok ? rollExpr(R.a[row.cat]) : 0};
+}
+function rollHtml(rl, v){
+  if(!rl) return '<span class="roll"><span class="ng">—</span></span>';
+  if(rl.kind === 'none') return '<span class="roll"><span class="ng">成長しない</span></span>';
+  const head = rl.kind === 'auto'
+    ? `<span class="tag2">${rl.tag ? esc(rl.tag)+' ' : ''}判定なし</span>`
+    : `<span class="d">${String(rl.d100).padStart(3,' ')}</span> ${rl.tag ? `<span class="tag2">${rl.tag}</span>` : ''}`;
+  const body = rl.gain > 0
+    ? `<span class="gain">+${rl.gain}</span> <span class="ng">${v}→${v + rl.gain}</span>`
+    : '<span class="ng">変化なし</span>';
+  return `<span class="roll" title="${esc(rl.expr || '')}">${head} ${body}</span>`;
+}
+function cmdFor(it, R){
+  const fx = R.fxVals.split(/[,、\s]+/).filter(Boolean).map(Number);
+  const tag = `【${it.skill}】`;
+  if(fx.includes(it.roll.die)) return `${R.fxAmt} ${tag}成長（出目${it.roll.die}）`;
+  const mode = R.m[it.roll.cat];
+  if(mode === 'none') return null;
+  if(mode === 'auto') return `${R.a[it.roll.cat]} ${tag}成長`;
+  return `1D100${mode === 'under' ? '<=' : '>'}${it.rowVal} ${tag}成長判定`;
+}
+
+function toast(msg){
+  const t = document.createElement('div'); t.className = 'copied'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(), 1600);
+}
+async function copy(text){
+  try{ await navigator.clipboard.writeText(text); toast('コピーしました'); }
+  catch(e){
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); toast('コピーしました'); }catch(_){ toast('コピーできませんでした。選択してコピーしてください'); }
+    ta.remove();
+  }
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button'); if(!t) return;
+  if(t.dataset.roll){
+    const items = last.items[t.dataset.roll] || [], R = getRules();
+    const cur = {};
+    items.forEach(it => {
+      const v = cur[it.key] ?? it.base;
+      const res = judge(it.roll, v, R);
+      rolls[it.rowKey] = res;
+      cur[it.key] = v + res.gain;
+    });
+    render();
+  } else if(t.dataset.cmd){
+    const R = getRules();
+    const lines = (last.items[t.dataset.cmd] || []).map(it => cmdFor(it, R)).filter(Boolean);
+    if(!lines.length) return toast('対象の技能がありません');
+    const MODE = {over:'技能値超で成長', under:'技能値以下で成長', auto:'判定なしで成長', none:'成長しない'};
+    const LABEL = {crit:'決定的成功', fumble:'致命的失敗', special:'スペシャル', success:'成功', fail:'失敗'};
+    const notes = [];
+    if(R.fxVals.trim()) notes.push(`※出目${R.fxVals.trim()}：判定なしで成長（${R.fxAmt}）`);
+    CATS.filter(c => last.cats.has(c)).forEach(c => notes.push(`※${LABEL[c]}：${MODE[R.m[c]]}${R.m[c] === 'none' ? '' : `（${R.a[c]}）`}`));
+    if(R.cfOn) notes.push(`※成長判定の出目が${R.cfCrit}以下/${R.cfFum}以上なら ${R.cfAmt}`);
+    copy(lines.join('\n') + '\n\n' + notes.join('\n'));
+  } else if(t.dataset.sum){
+    const lines = (last.items[t.dataset.sum] || []).map(it => {
+      const r = it.rl; if(!r) return null;
+      return r.gain > 0 ? `【${it.skill}】${it.rowVal}→${it.rowVal + r.gain}（+${r.gain}）` : `【${it.skill}】${it.rowVal}（成長なし）`;
+    }).filter(Boolean);
+    copy(`${t.dataset.sum}\n` + lines.join('\n'));
+  } else if(t.dataset.preset){
+    setRules(PRESETS[t.dataset.preset]); saveRules(); toast('ルールを切り替えました');
+  } else if(t.dataset.add){
+    include[t.dataset.add] = true; render();
+  } else if(t.id === 'clearA'){ $('#logA').value = ''; resetAndRender(); }
+  else if(t.id === 'clearB'){ $('#logB').value = ''; resetAndRender(); }
+});
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if(t.dataset.val){ manualVal[t.dataset.val] = +t.value || 0; Object.keys(rolls).forEach(k => { if(k.startsWith(t.dataset.val + '\u0002')) delete rolls[k]; }); render(); }
+  else if(t.closest('.rules')){ saveRules(); }
+  else if(t.classList.contains('cat') || t.id === 'showSecret'){ render(); }
+});
+
+function resetAndRender(){ manualVal = {}; include = {}; rolls = {}; render(); }
+let timer;
+['#logA','#logB'].forEach(sel => $(sel).addEventListener('input', () => {
+  clearTimeout(timer); timer = setTimeout(resetAndRender, 250);
+}));
+function loadFile(input, target){
+  input.addEventListener('change', () => {
+    const f = input.files[0]; if(!f) return;
+    const fr = new FileReader();
+    fr.onload = () => { $(target).value = fr.result; resetAndRender(); input.value = ''; };
+    fr.readAsText(f);
+  });
+}
+loadFile($('#fileA'), '#logA'); loadFile($('#fileB'), '#logB');
+
+loadRules();
+render();
+</script>
+
+</body></html>
