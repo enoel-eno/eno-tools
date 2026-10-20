@@ -68,9 +68,10 @@ tr:last-child td{border-bottom:none}
 .num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 .skill{font-weight:700}
 .hint{display:block;font-size:11px;color:var(--muted);font-weight:400}
-input.val{width:54px;font-family:var(--f-mono);font-size:14px;text-align:right;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);padding:3px 5px}
 .dice{display:flex;flex-wrap:wrap;gap:4px}
 .chip{font-size:12px;border:1px solid var(--line);border-radius:4px;padding:0 6px;white-space:nowrap;color:var(--muted)}
+.tabname{font-size:11px;color:var(--muted);white-space:nowrap}
+.tabname::before{content:"["}.tabname::after{content:"]"}
 .chip b{font-family:var(--f-mono);font-variant-numeric:tabular-nums;margin-right:3px}
 .chip.hit{color:var(--ink);border-color:var(--accent)}
 .chip.c-crit.hit{background:var(--soft);border-color:var(--accent);color:var(--accent)}
@@ -82,6 +83,11 @@ tr.r-none td:first-child{border-left-color:var(--line)}
 .roll .ok{color:var(--grow);font-weight:700}
 .roll .ng{color:var(--muted)}
 .gain{display:inline-block;background:var(--grow-bg);color:var(--grow);border-radius:4px;padding:0 6px;font-weight:700;margin-left:4px}
+.sum{padding:10px 16px;border-top:1px solid var(--line);background:var(--soft)}
+.sum-t{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px}
+.sum ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.sum li{display:grid;grid-template-columns:minmax(80px,auto) 80px auto minmax(0,1fr);align-items:center;gap:4px 12px}
+.sum .gain{margin-left:0;justify-self:start}
 .pc-foot{display:flex;flex-wrap:wrap;gap:8px;padding:10px 16px;border-top:1px solid var(--line)}
 details.ex{padding:8px 16px 12px;font-size:13px;color:var(--muted);border-top:1px dashed var(--line)}
 details.ex summary{cursor:pointer}
@@ -124,7 +130,7 @@ details.ex button{font-size:12px;padding:2px 8px}
     <section class="panel" aria-label="ログ入力">
       <div class="field">
         <div class="lab"><label for="logA">ログ</label></div>
-        <textarea id="logA" spellcheck="false" placeholder="ココフォリアのログ（HTMLのまま、または表示をコピーしたテキスト）を貼り付け"></textarea>
+        <textarea id="logA" spellcheck="false" placeholder="ココフォリアのログ（新旧形式両対応）"></textarea>
         <div class="tools">
           <label class="filebtn">ファイルを開く<input type="file" id="fileA" accept=".html,.htm,.txt"></label>
           <button type="button" id="clearA">クリア</button>
@@ -166,6 +172,8 @@ details.ex button{font-size:12px;padding:2px 8px}
         <label><input type="checkbox" class="cat" id="cat-success" value="success"> 成功</label>
         <label><input type="checkbox" class="cat" id="cat-fail" value="fail"> 失敗</label>
       </fieldset>
+      <fieldset id="tabBox" aria-label="除外するタブ">
+      </fieldset>
       <fieldset>
         <legend>ダイス</legend>
         <label><input type="checkbox" id="showSecret" checked> シークレットダイスも含める</label>
@@ -184,14 +192,26 @@ const EXCLUDE = /^(SAN|SAN値|正気度|SANチェック|正気度ロール|ア�
 const CMD = /(S?)(CCB|CC)(?:\(?[-+]?\d+\)?)?\s*<=\s*([^\s(（【]+)/i;
 
 // state
-let manualVal = {};   // key -> number
 let include = {};     // key -> bool (manual override)
 let rolls = {};       // key -> {d100, ok, gain}
 
 function d(n){ const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n + 1; }
 
+// 新形式のログでは < が &amp;lt; のように二重エスケープされていることがあるので、残った実体参照を戻す
+const unesc = s => s.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#0?39;/g,"'").replace(/&amp;/g,'&');
+
 function toEntries(text){
   if(!text.trim()) return [];
+  if(/<article[^>]*class=["'][^"']*\bmessage\b/i.test(text)){
+    // 新形式：発言者(.speaker)・本文(.message-text)・ダイス結果(.roll-result)が別要素。旧形式の1行「名前 : コマンド 結果」に組み立て直す
+    const doc = new DOMParser().parseFromString(text, 'text/html');
+    return [...doc.querySelectorAll('article.message')].map(a => {
+      const t = sel => [...a.querySelectorAll(sel)].map(e => unesc(e.textContent)).join(' ');
+      const who = unesc((a.querySelector('.speaker') || {textContent:''}).textContent).trim();
+      const ch = unesc((a.querySelector('.channel-name') || {textContent:''}).textContent).trim().replace(/^\[|\]$/g,'');
+      return ((ch ? `[${ch}] ` : '') + (who ? who + ' : ' : '') + t('.message-text') + ' ' + t('.roll-result')).replace(/\s+/g,' ').trim();
+    }).filter(Boolean);
+  }
   if(/<p[\s>]/i.test(text)){
     const doc = new DOMParser().parseFromString(text, 'text/html');
     return [...doc.querySelectorAll('p')].map(p => p.textContent.replace(/\s+/g,' ').trim()).filter(Boolean);
@@ -200,15 +220,22 @@ function toEntries(text){
 }
 
 function parseRoll(line){
-  const m = CMD.exec(line);
-  if(!m) return null;
+  let m = CMD.exec(line), bare = false;
+  if(!m){
+    // 新形式のログにはコマンド(CCB<=…)も技能名も残らず「(1D100<=50) ＞ 4 ＞ 決定的成功」だけのことがある
+    const f = /\(1D100\s*<=\s*(\d+)\)/i.exec(line);
+    if(!f) return null;
+    m = Object.assign([f[0], '', 'CC', f[1]], {index: f.index}); bare = true;
+  }
   const parts = line.slice(m.index).split(/＞|→/);
   if(parts.length < 3) return null;
   const result = parts[parts.length-1].trim();
   let name = line.slice(0, m.index).replace(/^\s*\[[^\]]*\]\s*/,'').replace(/[\s:：]+$/,'').trim() || '名前なし';
   const rest = line.slice(m.index + m[0].length);
-  let skill = (rest.match(/【([^】]+)】/) || [])[1];
-  if(!skill) skill = rest.split(/\(1D100|（1D100|\(/i)[0].trim();
+  const TAG = /[【〈＜]([^】〉＞]+)[】〉＞]/;
+  let skill = (rest.match(TAG) || [])[1];
+  if(!skill && bare) skill = (line.match(TAG) || [])[1];
+  else if(!skill) skill = rest.split(/\(1D100|（1D100|\(/i)[0].trim();
   skill = (skill || '技能名なし').trim();
   const vm = line.match(/\(1D100<=(\d+)\)/i);
   const value = vm ? +vm[1] : (parseInt(m[3]) || 0);
@@ -243,8 +270,13 @@ function analyze(){
   const cats = new Set([...document.querySelectorAll('.cat:checked')].map(x=>x.value));
   const secretOk = $('#showSecret').checked;
   const pcs = new Map(); let rollCount = 0, sysVotes = {6:0,7:0};
+  const tabs = new Map();   // タブ名 -> 技能ロール件数（除外前）
   entries.forEach(line => {
     const r = parseRoll(line); if(!r) return;
+    const ch = (line.match(/^\s*\[([^\]]*)\]/) || [])[1];
+    r.ch = ch || '';
+    if(ch !== undefined) tabs.set(ch, (tabs.get(ch)||0) + 1);
+    if(ch !== undefined && exTabs.has(ch)) return;
     if(r.secret && !secretOk) return;
     rollCount++; sysVotes[r.sys]++;
     if(!pcs.has(r.name)) pcs.set(r.name, new Map());
@@ -254,7 +286,20 @@ function analyze(){
     s.values.set(r.value, (s.values.get(r.value)||0)+1);
     s.rolls.push(r);
   });
-  return {pcs, mode, note, rollCount, lines: entries.length, cats, rules: getRules()};
+  return {pcs, mode, note, rollCount, lines: entries.length, cats, tabs, rules: getRules()};
+}
+
+const tabHtml = r => r.ch ? ` <span class="tabname" title="タブ：${esc(r.ch)}">${esc(r.ch)}</span>` : '';
+
+// 除外するタブ名（ログごとに変わるので、名前で覚えておく）
+let exTabs = new Set();
+try{ exTabs = new Set(JSON.parse(localStorage.getItem('growthExTabs')) || []); }catch(e){}
+function saveTabs(){ try{ localStorage.setItem('growthExTabs', JSON.stringify([...exTabs])); }catch(e){} }
+function renderTabs(tabs){
+  const box = $('#tabBox'), lg = '<legend>除外するタブ（チェックしたタブの発言は判定しない）</legend>';
+  if(!tabs.size){ box.innerHTML = lg + '<span class="note">ログを貼るとタブ名が一覧に出ます。</span>'; return; }
+  box.innerHTML = lg + [...tabs].map(([name, n]) =>
+    `<label><input type="checkbox" class="tabx" value="${esc(name)}" ${exTabs.has(name) ? 'checked' : ''}> ${esc(name || '（タブ名なし）')} <span class="tag">${n}</span></label>`).join('');
 }
 
 function pickValue(values){
@@ -266,6 +311,7 @@ function pickValue(values){
 let last = null;
 function render(){
   const R = last = analyze();
+  renderTabs(R.tabs);
   const st = $('#status');
   st.innerHTML = (R.note ? R.note + '<br>' : `${R.lines ? `<b>${R.lines}</b> 行を読み込み` : 'ログ未入力'}<br>`) +
     `技能ロール <b>${R.rollCount}</b> 件`;
@@ -288,14 +334,12 @@ function render(){
       const auto = !EXCLUDE.test(skill.replace(/\s/g,''));
       if(!auto && !include[key]){ excluded.push({skill, key, hits, value: pickValue(s.values)}); continue; }
       const pv = pickValue(s.values);
-      const base = manualVal[key] ?? pv;
+      const base = pv;
       const others = [...s.values.keys()].filter(v => v !== pv);
-      let cur = base;
       hits.forEach((o, n) => {
         const rowKey = key + '\u0002' + o.i;
-        const rl = rolls[rowKey];
-        rows.push({rowKey, key, skill, roll: o.x, first: n === 0, base, rowVal: cur, others, rl});
-        if(rl) cur += rl.gain;
+        // 判定は、その技能のログ上の技能値で行う（同じ技能の先の成長は反映しない）
+        rows.push({rowKey, key, skill, roll: o.x, first: n === 0, base, rowVal: base, others, rl: rolls[rowKey]});
       });
     }
     if(!rows.length && !excluded.length) continue;
@@ -304,24 +348,27 @@ function render(){
     const done = rows.some(r => r.rl);
     html += `<article class="pc" data-name="${esc(name)}"><div class="pc-head"><h2>${esc(name)}</h2><span class="meta">成長候補 ${rows.length} 件</span></div>`;
     if(rows.length){
-      html += `<div class="tbl-wrap"><table><colgroup><col><col style="width:84px"><col style="width:150px"><col style="width:250px"></colgroup><thead><tr><th>技能</th><th class="num">技能値</th><th>ダイス結果</th><th>成長判定</th></tr></thead><tbody>`;
+      html += `<div class="tbl-wrap"><table><colgroup><col><col style="width:84px"><col style="width:190px"><col style="width:250px"></colgroup><thead><tr><th>技能</th><th class="num">技能値</th><th>ダイス結果</th><th>成長判定</th></tr></thead><tbody>`;
       rows.forEach((r, ri) => {
         const rl = r.rl;
-        const rollCell = rollHtml(rl, r.rowVal);
-        const valCell = r.first
-          ? `<input class="val" type="number" min="0" max="999" id="v-${pid}-${ri}" data-val="${esc(r.key)}" value="${r.base}" aria-label="${esc(r.skill)}の技能値">`
-          : `<span class="val-text">${r.rowVal}</span>`;
+        const rollCell = rollHtml(rl);
+        const valCell = `<span class="val-text">${r.rowVal}</span>`;
         html += `<tr class="${rl ? (rl.gain > 0 ? 'r-grow' : 'r-none') : ''}">
           <td><span class="skill">${esc(r.skill)}</span>${r.first && r.others.length ? `<span class="hint">ログ上の他の値：${r.others.join(', ')}</span>` : ''}</td>
           <td class="num">${valCell}</td>
-          <td><span class="chip c-${r.roll.cat} hit"><b>${r.roll.die}</b>${LABEL[r.roll.cat]}</span></td>
+          <td><span class="chip c-${r.roll.cat} hit"><b>${r.roll.die}</b>${LABEL[r.roll.cat]}</span>${tabHtml(r.roll)}</td>
           <td>${rollCell}</td></tr>`;
       });
       html += `</tbody></table></div>`;
     }
     if(excluded.length){
       const exCount = excluded.reduce((n, x) => n + x.hits.length, 0);
-      html += `<details class="ex"><summary>通常は成長しない技能 ${exCount} 件（${excluded.length} 技能）</summary><ul class="ex-list">${excluded.map(x => `<li><span class="skill">${esc(x.skill)}</span><span class="num">${x.value}</span><span class="ex-dice">${x.hits.map(o => `<span class="chip c-${o.x.cat} hit"><b>${o.x.die}</b>${LABEL[o.x.cat]}</span>`).join('')}</span><span class="ex-n">${x.hits.length}件</span><button type="button" data-add="${esc(x.key)}">一覧に追加</button></li>`).join('')}</ul></details>`;
+      html += `<details class="ex"><summary>通常は成長しない技能 ${exCount} 件（${excluded.length} 技能）</summary><ul class="ex-list">${excluded.map(x => `<li><span class="skill">${esc(x.skill)}</span><span class="num">${x.value}</span><span class="ex-dice">${x.hits.map(o => `<span class="chip c-${o.x.cat} hit"><b>${o.x.die}</b>${LABEL[o.x.cat]}</span>${tabHtml(o.x)}`).join('')}</span><span class="ex-n">${x.hits.length}件</span><button type="button" data-add="${esc(x.key)}">一覧に追加</button></li>`).join('')}</ul></details>`;
+    }
+    if(done){
+      const grown = summarize(rows).filter(s => s.total > 0);
+      html += `<div class="sum"><div class="sum-t">成長まとめ（技能ごとの合計）</div>${grown.length ? `<ul>${grown.map(s =>
+        `<li><span class="skill">${esc(s.skill)}</span><span class="num">${s.from}→${s.from + s.total}</span><span class="gain">+${s.total}</span><span class="ex-n">${s.n}回中${s.g}回成長</span></li>`).join('')}</ul>` : '<span class="ng">成長した技能はありません</span>'}</div>`;
     }
     html += `<div class="pc-foot"><button type="button" class="primary" data-roll="${esc(name)}">ここで成長判定を振る</button><button type="button" data-cmd="${esc(name)}">判定用コマンドをコピー</button><button type="button" data-sum="${esc(name)}" ${done ? '' : 'disabled'}>結果をコピー</button></div></article>`;
   }
@@ -366,14 +413,25 @@ function judge(row, v, R){
   const ok = mode === 'under' ? g <= v : g > v;
   return {kind:'check', d100:g, tag:'', expr:R.a[row.cat], gain: ok ? rollExpr(R.a[row.cat]) : 0};
 }
-function rollHtml(rl, v){
+// 判定済みの行を技能ごとにまとめる（開始値・成長量の合計・判定回数・成長回数）
+function summarize(rows){
+  const sum = new Map();
+  rows.forEach(r => {
+    if(!r.rl) return;
+    const s = sum.get(r.key) || {skill: r.skill, from: r.base, total: 0, n: 0, g: 0};
+    s.total += r.rl.gain; s.n++; if(r.rl.gain > 0) s.g++;
+    sum.set(r.key, s);
+  });
+  return [...sum.values()];
+}
+function rollHtml(rl){
   if(!rl) return '<span class="roll"><span class="ng">—</span></span>';
   if(rl.kind === 'none') return '<span class="roll"><span class="ng">成長しない</span></span>';
   const head = rl.kind === 'auto'
     ? `<span class="tag2">${rl.tag ? esc(rl.tag)+' ' : ''}判定なし</span>`
     : `<span class="d">${String(rl.d100).padStart(3,' ')}</span> ${rl.tag ? `<span class="tag2">${rl.tag}</span>` : ''}`;
   const body = rl.gain > 0
-    ? `<span class="gain">+${rl.gain}</span> <span class="ng">${v}→${v + rl.gain}</span>`
+    ? `<span class="gain">+${rl.gain}</span>`
     : '<span class="ng">変化なし</span>';
   return `<span class="roll" title="${esc(rl.expr || '')}">${head} ${body}</span>`;
 }
@@ -404,13 +462,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest('button'); if(!t) return;
   if(t.dataset.roll){
     const items = last.items[t.dataset.roll] || [], R = getRules();
-    const cur = {};
-    items.forEach(it => {
-      const v = cur[it.key] ?? it.base;
-      const res = judge(it.roll, v, R);
-      rolls[it.rowKey] = res;
-      cur[it.key] = v + res.gain;
-    });
+    items.forEach(it => { rolls[it.rowKey] = judge(it.roll, it.base, R); });
     render();
   } else if(t.dataset.cmd){
     const R = getRules();
@@ -427,11 +479,9 @@ document.addEventListener('click', e => {
     if(R.cfOn) notes.push(`※成長判定の出目が${R.cfCrit}以下/${R.cfFum}以上なら ${R.cfAmt}`);
     copy(notes.join('\n'));
   } else if(t.dataset.sum){
-    const lines = (last.items[t.dataset.sum] || []).map(it => {
-      const r = it.rl; if(!r) return null;
-      return r.gain > 0 ? `【${it.skill}】${it.rowVal}→${it.rowVal + r.gain}（+${r.gain}）` : `【${it.skill}】${it.rowVal}（成長なし）`;
-    }).filter(Boolean);
-    copy(`${t.dataset.sum}\n` + lines.join('\n'));
+    const lines = summarize(last.items[t.dataset.sum] || []).filter(s => s.total > 0)
+      .map(s => `【${s.skill}】${s.from}→${s.from + s.total}（+${s.total}）`);
+    copy(`${t.dataset.sum}\n` + (lines.length ? lines.join('\n') : '成長した技能なし'));
   } else if(t.dataset.preset){
     setRules(PRESETS[t.dataset.preset]); saveRules(); rolls = {}; render(); toast('ルールを切り替えました');
   } else if(t.dataset.add){
@@ -442,12 +492,12 @@ document.addEventListener('click', e => {
 
 document.addEventListener('change', e => {
   const t = e.target;
-  if(t.dataset.val){ manualVal[t.dataset.val] = +t.value || 0; Object.keys(rolls).forEach(k => { if(k.startsWith(t.dataset.val + '\u0002')) delete rolls[k]; }); render(); }
-  else if(t.closest('.rules')){ saveRules(); rolls = {}; render(); }
+  if(t.closest('.rules')){ saveRules(); rolls = {}; render(); }
+  else if(t.classList.contains('tabx')){ t.checked ? exTabs.add(t.value) : exTabs.delete(t.value); saveTabs(); rolls = {}; render(); }
   else if(t.classList.contains('cat') || t.id === 'showSecret'){ render(); }
 });
 
-function resetAndRender(){ manualVal = {}; include = {}; rolls = {}; render(); }
+function resetAndRender(){ include = {}; rolls = {}; render(); }
 let timer;
 ['#logA','#logB'].forEach(sel => $(sel).addEventListener('input', () => {
   clearTimeout(timer); timer = setTimeout(resetAndRender, 250);
