@@ -27,7 +27,17 @@ header p{margin:0; color:var(--muted)}
 .grid{display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start}
 .controls{flex:1 1 320px; max-width:400px; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 18px; display:flex; flex-direction:column; gap:4px}
 .preview{flex:999 1 420px; min-width:0; display:flex; flex-direction:column; gap:12px; position:sticky; top:12px}
-@media (max-width:900px){ .controls{max-width:none} .preview{position:static} }
+@media (max-width:900px){
+  .controls{max-width:none}
+  /* phones: keep a compact preview pinned above the controls while editing */
+  .grid{gap:12px}
+  .preview{order:-1; flex:1 1 100%; position:sticky; top:0; z-index:5; background:var(--bg); padding-block:8px; gap:8px; box-shadow:0 1px 0 var(--line)}
+  .preview .stage{padding:6px}
+  .preview canvas{min-width:0; width:auto; height:min(38vh, 340px); max-width:100%}
+  .preview .fallback img{max-height:28vh; width:auto; max-width:100%}
+  .preview .bar small{display:none}
+  .preview .bar{justify-content:flex-end}
+}
 fieldset{border:0; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; min-width:0}
 .sec{border-top:1px solid var(--line); padding-top:4px}
 .sec:first-child{border-top:0; padding-top:0}
@@ -103,7 +113,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
             <input type="range" id="posX" min="-500" max="800">
           </label>
           <label for="posY">上下
-            <input type="range" id="posY" min="-1600" max="900">
+            <input type="range" id="posY" min="-900" max="1600">
           </label>
         </div>
         <button type="button" class="btn ghost" id="resetPos">位置を既定に戻す</button>
@@ -128,7 +138,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
             <input type="range" id="bustX" min="-900" max="900">
           </label>
           <label for="bustY">上下
-            <input type="range" id="bustY" min="-4000" max="1200">
+            <input type="range" id="bustY" min="-1200" max="4000">
           </label>
         </div>
       </fieldset>
@@ -154,7 +164,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
             <input type="range" id="diffX" min="-400" max="400">
           </label>
           <label for="diffY">枠の中の上下
-            <input type="range" id="diffY" min="-1200" max="300">
+            <input type="range" id="diffY" min="-300" max="1200">
           </label>
         </div>
         <button type="button" class="btn ghost" id="diffClear" disabled>差分をすべて削除</button>
@@ -602,7 +612,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     let h = w / ratio;
     const z = sz('zoom');
     w *= z; h *= z;
-    return { x: 760 - w / 2 + num('posX'), y: 70 + num('posY'), w, h };
+    return { x: 760 - w / 2 + num('posX'), y: 70 - num('posY'), w, h };
   }
 
   // faded copy of the whole art, placed large so the default view is roughly a bust-up
@@ -611,7 +621,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     const ratio = im.naturalWidth / im.naturalHeight;
     const dw = 1500 * sz('bustZoom'), dh = dw / ratio;
     ctx.save(); ctx.globalAlpha = num('bustAlpha') / 100;
-    ctx.drawImage(im, 1120 - dw / 2 + num('bustX'), -40 + num('bustY'), dw, dh);
+    ctx.drawImage(im, 1120 - dw / 2 + num('bustX'), -40 - num('bustY'), dw, dh);
     ctx.restore();
   }
 
@@ -678,7 +688,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
       ctx.save();
       diamond(cx, cy, half); ctx.clip();
       ctx.fillStyle = T.bg; ctx.fill();
-      ctx.drawImage(im, x0 + D / 2 - dw / 2 + num('diffX') * k, y0 - D * 0.4 + num('diffY') * k, dw, dh);
+      ctx.drawImage(im, x0 + D / 2 - dw / 2 + num('diffX') * k, y0 - D * 0.4 - num('diffY') * k, dw, dh);
       ctx.restore();
       ctx.strokeStyle = rgba(T.ink, 0.75); ctx.lineWidth = 1.5; ctx.lineJoin = 'miter';
       diamond(cx, cy, half - 0.75); ctx.stroke();
