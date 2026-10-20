@@ -10,14 +10,14 @@
 <style>
 /* Layout: control sheet on the left, live 1600×1800 (8:9) preview on the right; stacks on phones. */
 :root{
-  --bg:#ECEFEF; --panel:#F8FAFA; --fg:#1F2629; --muted:#56626A; --line:#CCD5D8; --accent:#3F6A80; --accent-fg:#FFFFFF;
+  --bg:#ffffff; --panel:#faf9f7; --fg:#26221f; --muted:#6f6761; --line:#e3dfda; --accent:#7a4e52; --accent-fg:#FFFFFF;
   --f-ui:"Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
   --f-disp:"Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#14191B; --panel:#1C2326; --fg:#E4EAEC; --muted:#9BA9AF; --line:#33404A; --accent:#8DB6CB; --accent-fg:#0F1416; color-scheme:dark } }
+  --bg:#171615; --panel:#201f1d; --fg:#ebe7e3; --muted:#a39c95; --line:#34312e; --accent:#c49a9c; --accent-fg:#1b1313; color-scheme:dark } }
 :root[data-theme="dark"]{
-  --bg:#14191B; --panel:#1C2326; --fg:#E4EAEC; --muted:#9BA9AF; --line:#33404A; --accent:#8DB6CB; --accent-fg:#0F1416; color-scheme:dark }
+  --bg:#171615; --panel:#201f1d; --fg:#ebe7e3; --muted:#a39c95; --line:#34312e; --accent:#c49a9c; --accent-fg:#1b1313; color-scheme:dark }
 *{box-sizing:border-box}
 body{margin:0; background:var(--bg); color:var(--fg); font-family:var(--f-ui); font-size:14px; line-height:1.6}
 .wrap{max-width:1440px; margin:0 auto; padding-block:28px 48px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); display:flex; flex-direction:column; gap:20px}
