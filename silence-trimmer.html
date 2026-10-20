@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>無音カットツール</title>
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+:root{
+  --bg:#eaeef1; --surface:#ffffff; --ink:#1f2328; --muted:#6b7178; --line:#dde1e5; --accent:#2b2f36; --accent-ink:#fff; --soft:#f0f2f4;
+  --cut:rgba(154,74,68,.22); --wave:#2b2f36; --err:#9a4a44; --ok:#4a7360;
+  --font-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --font-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15171a; --surface:#1e2125; --ink:#e6e8ea; --muted:#9aa0a6; --line:#30343a; --accent:#d5d9de; --accent-ink:#15171a; --soft:#272b30;
+  --cut:rgba(217,149,141,.28); --wave:#d5d9de; --err:#d9958d; --ok:#8fbf9f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15171a; --surface:#1e2125; --ink:#e6e8ea; --muted:#9aa0a6; --line:#30343a; --accent:#d5d9de; --accent-ink:#15171a; --soft:#272b30;
+  --cut:rgba(217,149,141,.28); --wave:#d5d9de; --err:#d9958d; --ok:#8fbf9f; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.6;
+  padding:28px max(16px,env(safe-area-inset-right,0px)) 48px max(16px,env(safe-area-inset-left,0px))}
+.wrap{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--font-display);font-weight:800;font-size:clamp(24px,4vw,32px);margin:0;letter-spacing:.02em}
+header p{margin:4px 0 0;color:var(--muted)}
+.back{font-size:13px;color:var(--muted);text-decoration:none}
+.back:hover{color:var(--ink)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
+.drop{display:grid;place-items:center;gap:6px;text-align:center;padding:36px 16px;border:1.5px dashed var(--line);border-radius:12px;background:var(--soft);cursor:pointer;transition:border-color .15s}
+.drop:hover,.drop.over,.drop:focus-visible{border-color:var(--accent);outline:none}
+.drop b{font-size:16px}
+.drop small{color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+.field input{width:130px;padding:8px 10px;font:inherit;font-family:var(--font-mono);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.field input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:inherit;font-weight:700;padding:10px 20px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.sub{background:transparent;color:var(--ink);border-color:var(--line)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+canvas{touch-action:pan-y;width:100%;height:120px;display:block;border-radius:8px;background:var(--soft);cursor:pointer}
+.player{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
+.player .pos{font-family:var(--font-mono);font-size:13px;color:var(--muted);margin-left:auto}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}
+.stats div{background:var(--soft);border-radius:8px;padding:10px 12px}
+.stats span{display:block;font-size:12px;color:var(--muted);letter-spacing:.06em}
+.stats b{font-family:var(--font-mono);font-size:16px}
+.fname{font-family:var(--font-mono);font-size:13px;word-break:break-all;margin:0 0 12px;color:var(--muted)}
+.msg{min-height:1.6em;margin:12px 0 0;font-size:14px}
+.msg.err{color:var(--err)}.msg.ok{color:var(--ok)}
+.note{font-size:13px;color:var(--muted);margin:0}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="back" href="index.html">← ツール一覧</a>
+    <h1>無音カットツール</h1>
+    <p>音楽ファイルの前後の無音部分を切り取ります。音が始まる前と終わった後に余白（バッファ）を残せます。</p>
+  </header>
+
+  <div class="card">
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="音楽ファイルを選択">
+      <b>ここにファイルをドロップ、またはクリックして選択</b>
+      <small>mp3 / wav に対応。音声はアップロードされず、ブラウザ内だけで処理されます。</small>
+    </div>
+    <input type="file" id="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav" hidden>
+  </div>
+
+  <div class="card" id="work" hidden>
+    <p class="fname" id="fname"></p>
+    <div class="row">
+      <div class="field"><label for="buf">バッファ（秒）</label><input id="buf" type="number" min="0" step="0.5" value="2"></div>
+      <div class="field"><label for="thr">無音のしきい値（dB）</label><input id="thr" type="number" max="-10" min="-100" step="1" value="-50"></div>
+    </div>
+    <p class="note" style="margin-top:10px">しきい値より小さい音を無音とみなします。ノイズで無音が検出されない場合は、値を大きく（例: -40）してください。</p>
+    <div style="margin:16px 0 0"><canvas id="wave"></canvas></div>
+    <div class="player">
+      <button class="sub" id="play" type="button">▶ 再生</button>
+      <button class="sub" id="pHead" type="button">開始位置から</button>
+      <button class="sub" id="pTail" type="button">終了の5秒前から</button>
+      <span class="pos" id="pos"></span>
+    </div>
+    <audio id="audio" preload="auto" hidden></audio>
+    <div class="stats">
+      <div><span>元の長さ</span><b id="sOrig">-</b></div>
+      <div><span>切り取り後</span><b id="sNew">-</b></div>
+      <div><span>先頭を削除</span><b id="sHead">-</b></div>
+      <div><span>末尾を削除</span><b id="sTail">-</b></div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button id="save" disabled>元のファイルに上書き保存</button>
+    </div>
+    <p class="msg" id="msg" role="status"></p>
+    <p class="note">Chrome / Edge では同じ名前で直接上書きします。それ以外のブラウザでは、同じファイル名でダウンロードされます。</p>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const drop = $('drop'), fileInput = $('file'), work = $('work'), msg = $('msg'), saveBtn = $('save');
+const canvas = $('wave');
+const audio = $('audio'); let audioUrl = null;
+let state = null; // {file, handle, bytes, kind, duration, peaks, first, last, start, end}
+
+const fmt = s => { const m = Math.floor(s / 60); return m + ':' + (s % 60).toFixed(2).padStart(5, '0'); };
+const say = (t, cls = '') => { msg.textContent = t; msg.className = 'msg ' + cls; };
+
+drop.addEventListener('click', openPicker);
+drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); } });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) load(fileInput.files[0], null); fileInput.value = ''; });
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', async e => {
+  const item = e.dataTransfer.items && e.dataTransfer.items[0];
+  let handle = null;
+  if (item && item.getAsFileSystemHandle) { try { handle = await item.getAsFileSystemHandle(); } catch {} }
+  const file = handle && handle.kind === 'file' ? await handle.getFile() : e.dataTransfer.files[0];
+  if (file) load(file, handle && handle.kind === 'file' ? handle : null);
+});
+
+async function openPicker() {
+  if (window.showOpenFilePicker) {
+    try {
+      const [h] = await window.showOpenFilePicker({
+        types: [{ description: '音楽ファイル', accept: { 'audio/mpeg': ['.mp3'], 'audio/wav': ['.wav'] } }]
+      });
+      load(await h.getFile(), h);
+    } catch (e) { if (e.name !== 'AbortError') say(e.message, 'err'); }
+  } else fileInput.click();
+}
+
+async function load(file, handle) {
+  work.hidden = false;
+  saveBtn.disabled = true;
+  $('fname').textContent = file.name;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const kind = ext === 'mp3' ? 'mp3' : ext === 'wav' ? 'wav' : null;
+  if (!kind) { state = null; say('mp3 または wav ファイルを選んでください。', 'err'); return; }
+  say('解析中…');
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = await ctx.decodeAudioData(bytes.slice().buffer);
+    ctx.close();
+    const chans = Array.from({ length: buf.numberOfChannels }, (_, i) => buf.getChannelData(i));
+    const n = buf.length, B = 1000, per = Math.max(1, Math.floor(n / B));
+    const peaks = new Float32Array(B);
+    for (const c of chans) for (let b = 0; b < B; b++) {
+      let m = 0; const e = Math.min(n, (b + 1) * per);
+      for (let i = b * per; i < e; i++) { const v = Math.abs(c[i]); if (v > m) m = v; }
+      if (m > peaks[b]) peaks[b] = m;
+    }
+    state = { file, handle, bytes, kind, duration: buf.duration, rate: buf.sampleRate, chans, peaks };
+    audio.pause();
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    audioUrl = URL.createObjectURL(file);
+    audio.src = audioUrl;
+    recompute();
+  } catch (e) {
+    state = null; say('読み込めませんでした: ' + e.message, 'err');
+  }
+}
+
+function recompute() {
+  if (!state) return;
+  const thr = Math.pow(10, (parseFloat($('thr').value) || -50) / 20);
+  const buffer = Math.max(0, parseFloat($('buf').value) || 0);
+  const { chans, rate, duration } = state;
+  const n = chans[0].length;
+  let first = -1, last = -1;
+  for (let i = 0; i < n && first < 0; i++) for (const c of chans) if (Math.abs(c[i]) > thr) { first = i; break; }
+  for (let i = n - 1; i >= 0 && last < 0; i--) for (const c of chans) if (Math.abs(c[i]) > thr) { last = i; break; }
+  if (first < 0) {
+    state.start = 0; state.end = duration; refresh();
+    say('しきい値を超える音が見つかりませんでした。スライダーで手動調整もできます。', 'err'); return;
+  }
+  state.start = Math.max(0, first / rate - buffer);
+  state.end = Math.min(duration, (last + 1) / rate + buffer);
+  refresh();
+  say(isCutting() ? '' : '切り取れる無音部分がありません（バッファ内に収まっています）。');
+}
+
+const isCutting = () => state.start > 0.01 || state.end < state.duration - 0.01;
+function refresh() {
+  saveBtn.disabled = !isCutting();
+  draw(); stats();
+}
+/* 波形上のハンドルをドラッグして切り取り位置を調整 */
+const HIT = 12;
+let drag = null;
+const xOf = t => t / state.duration * canvas.clientWidth;
+function hitHandle(e) {
+  const x = e.clientX - canvas.getBoundingClientRect().left;
+  const ds = Math.abs(x - xOf(state.start)), de = Math.abs(x - xOf(state.end));
+  if (Math.min(ds, de) > HIT) return null;
+  return ds <= de ? 's' : 'e';
+}
+canvas.addEventListener('pointerdown', e => {
+  if (!state) return;
+  drag = hitHandle(e);
+  if (drag) { canvas.setPointerCapture(e.pointerId); e.preventDefault(); }
+  canvas._moved = false;
+});
+canvas.addEventListener('pointermove', e => {
+  if (!state) return;
+  if (!drag) { canvas.style.cursor = hitHandle(e) ? 'ew-resize' : 'pointer'; return; }
+  const r = canvas.getBoundingClientRect();
+  const t = Math.min(Math.max((e.clientX - r.left) / r.width * state.duration, 0), state.duration);
+  if (drag === 's') state.start = Math.min(t, state.end - 0.1); else state.end = Math.max(t, state.start + 0.1);
+  canvas._moved = true; refresh(); say('');
+});
+const endDrag = () => { drag = null; };
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+/* ---------- 再生 ---------- */
+function playFrom(t) {
+  if (!state) return;
+  audio.currentTime = Math.min(Math.max(t, state.start), state.end - 0.05);
+  audio.play(); tick();
+}
+function tick() {
+  if (!state) return;
+  if (!audio.paused && audio.currentTime >= state.end) { audio.pause(); audio.currentTime = state.start; }
+  draw();
+  if (!audio.paused) requestAnimationFrame(tick);
+}
+audio.addEventListener('pause', () => { $('play').textContent = '▶ 再生'; if (state) draw(); });
+audio.addEventListener('play', () => { $('play').textContent = '■ 停止'; });
+$('play').addEventListener('click', () => {
+  if (!state) return;
+  if (!audio.paused) { audio.pause(); return; }
+  const t = audio.currentTime;
+  playFrom(t >= state.start && t < state.end - 0.05 ? t : state.start);
+});
+$('pHead').addEventListener('click', () => state && playFrom(state.start));
+$('pTail').addEventListener('click', () => state && playFrom(state.end - 5));
+canvas.addEventListener('click', e => {
+  if (!state || canvas._moved || hitHandle(e)) { canvas._moved = false; return; }
+  const r = canvas.getBoundingClientRect();
+  playFrom((e.clientX - r.left) / r.width * state.duration);
+});
+
+function stats() {
+  const { duration, start, end } = state;
+  $('sOrig').textContent = fmt(duration);
+  $('sNew').textContent = fmt(end - start);
+  $('sHead').textContent = fmt(start);
+  $('sTail').textContent = fmt(duration - end);
+}
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const g = canvas.getContext('2d'); g.scale(dpr, dpr);
+  const cs = getComputedStyle(document.documentElement);
+  const { peaks, duration, start, end } = state;
+  g.fillStyle = cs.getPropertyValue('--wave');
+  const bw = w / peaks.length;
+  for (let i = 0; i < peaks.length; i++) {
+    const bh = Math.max(1, peaks[i] * h * .9);
+    g.fillRect(i * bw, (h - bh) / 2, Math.max(1, bw - .5), bh);
+  }
+  g.fillStyle = cs.getPropertyValue('--cut');
+  g.fillRect(0, 0, start / duration * w, h);
+  g.fillRect(end / duration * w, 0, w - end / duration * w, h);
+  const hc = cs.getPropertyValue('--err');
+  g.fillStyle = hc;
+  for (const x of [start / duration * w, end / duration * w]) {
+    g.fillRect(Math.round(x) - 1, 0, 2, h);
+    g.fillRect(Math.round(x) - 5, h / 2 - 14, 10, 28);
+  }
+  g.fillStyle = cs.getPropertyValue('--surface');
+  for (const x of [start / duration * w, end / duration * w]) g.fillRect(Math.round(x) - 0.5, h / 2 - 8, 1, 16);
+  const t = audio.currentTime;
+  if (t > 0) {
+    g.fillStyle = cs.getPropertyValue('--ok');
+    g.fillRect(Math.round(t / duration * w) - 1, 0, 2, h);
+  }
+  $('pos').textContent = fmt(t) + ' / ' + fmt(duration);
+}
+window.addEventListener('resize', () => state && draw());
+$('buf').addEventListener('input', recompute);
+$('thr').addEventListener('input', recompute);
+
+/* ---------- 切り出し ---------- */
+function trimMp3(b, start, end) {
+  let p = 0;
+  if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) p = 10 + ((b[6] & 127) << 21 | (b[7] & 127) << 14 | (b[8] & 127) << 7 | (b[9] & 127));
+  const BR1 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320], BR2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+  const SR = { 3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000] };
+  const head = b.subarray(0, p), frames = []; // [offset, length]
+  let spf = 1152, rate = 44100;
+  while (p + 4 <= b.length) {
+    if (b[p] !== 0xFF || (b[p + 1] & 0xE0) !== 0xE0) { // 同期が外れたら次の同期まで探す
+      let q = p + 1; while (q + 1 < b.length && !(b[q] === 0xFF && (b[q + 1] & 0xE0) === 0xE0)) q++;
+      if (q + 1 >= b.length) break; p = q; continue;
+    }
+    const ver = (b[p + 1] >> 3) & 3, layer = (b[p + 1] >> 1) & 3, bi = b[p + 2] >> 4, si = (b[p + 2] >> 2) & 3, pad = (b[p + 2] >> 1) & 1;
+    if (ver === 1 || layer !== 1 || bi === 0 || bi === 15 || si === 3) { p++; continue; }
+    rate = SR[ver][si];
+    const br = (ver === 3 ? BR1 : BR2)[bi] * 1000;
+    spf = ver === 3 ? 1152 : 576;
+    const len = Math.floor((ver === 3 ? 144 : 72) * br / rate) + pad;
+    if (p + len > b.length) break;
+    frames.push([p, len]); p += len;
+  }
+  if (!frames.length) throw new Error('mp3 のフレームを解析できませんでした。');
+  const tail = b.subarray(p); // ID3v1 など
+  // 先頭の Xing/Info フレームは長さ情報が狂うので除く
+  const f0 = frames[0], hdr = String.fromCharCode(...b.subarray(f0[0] + 4, f0[0] + 4 + 40));
+  const audio = /Xing|Info/.test(hdr) ? frames.slice(1) : frames;
+  const dur = spf / rate;
+  const a = Math.max(0, Math.floor(start / dur) - 2); // bit reservoir 対策で2フレーム前から
+  const z = Math.min(audio.length, Math.ceil(end / dur));
+  const sel = audio.slice(a, z);
+  const total = head.length + sel.reduce((s, f) => s + f[1], 0) + tail.length;
+  const out = new Uint8Array(total); let o = 0;
+  out.set(head, o); o += head.length;
+  for (const [off, len] of sel) { out.set(b.subarray(off, off + len), o); o += len; }
+  out.set(tail, o);
+  return out;
+}
+
+function trimWav(b, start, end) {
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const tag = o => String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]);
+  if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') throw new Error('wav として解析できませんでした。');
+  let p = 12, fmtOff = -1, dataOff = -1, dataLen = 0;
+  while (p + 8 <= b.length) {
+    const len = dv.getUint32(p + 4, true), id = tag(p);
+    if (id === 'fmt ') fmtOff = p;
+    if (id === 'data') { dataOff = p + 8; dataLen = Math.min(len, b.length - dataOff); break; }
+    p += 8 + len + (len & 1);
+  }
+  if (fmtOff < 0 || dataOff < 0) throw new Error('wav のヘッダーが不正です。');
+  const byteRate = dv.getUint32(fmtOff + 16, true), align = dv.getUint16(fmtOff + 20, true);
+  const s = Math.floor(start * byteRate / align) * align, e = Math.min(dataLen, Math.ceil(end * byteRate / align) * align);
+  const body = b.subarray(dataOff + s, dataOff + e);
+  const pre = b.subarray(12, dataOff - 8); // data より前のチャンク（fmt など）
+  const out = new Uint8Array(12 + pre.length + 8 + body.length + (body.length & 1));
+  const ov = new DataView(out.buffer);
+  out.set(b.subarray(0, 12), 0); out.set(pre, 12);
+  out.set([0x64, 0x61, 0x74, 0x61], 12 + pre.length);
+  ov.setUint32(16 + pre.length, body.length, true);
+  out.set(body, 20 + pre.length);
+  ov.setUint32(4, out.length - 8, true);
+  return out;
+}
+
+saveBtn.addEventListener('click', async () => {
+  if (!state) return;
+  saveBtn.disabled = true; say('保存中…');
+  try {
+    const { file, handle, bytes, kind, start, end } = state;
+    const out = (kind === 'mp3' ? trimMp3 : trimWav)(bytes, start, end);
+    let wrote = false;
+    if (handle) {
+      try {
+        if ((await handle.queryPermission({ mode: 'readwrite' })) !== 'granted' &&
+            (await handle.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('書き込みが許可されませんでした。');
+        const w = await handle.createWritable(); await w.write(out); await w.close(); wrote = true;
+      } catch (e) { say('上書きできなかったため、ダウンロードに切り替えます。(' + e.message + ')', 'err'); }
+    }
+    if (!wrote) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([out], { type: file.type || (kind === 'mp3' ? 'audio/mpeg' : 'audio/wav') }));
+      a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    }
+    // 以降の再編集に備えて、保存後の内容を読み込み直す
+    const saved = new File([out], file.name, { type: file.type, lastModified: Date.now() });
+    await load(saved, wrote ? handle : null);
+    say(wrote ? `「${file.name}」を上書き保存しました。` : `「${file.name}」をダウンロードしました。`, 'ok');
+  } catch (e) { say('保存に失敗しました: ' + e.message, 'err'); saveBtn.disabled = false; }
+});
+})();
+</script>
+</body>
+</html>
