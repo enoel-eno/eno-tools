@@ -9,21 +9,21 @@
 <style>
 /* Layout: 左に貼り付け欄＋設定、右に探索者ごとの成長判定表（スマホでは縦積み） */
 :root{
-  --bg:#ffffff; --surface:#faf9f7; --ink:#26221f; --muted:#6f6761; --line:#e3dfda;
-  --accent:#7a4e52; --accent-ink:#fbf6f6; --crit:#8c4a42; --soft:#f3ece9; --warn:#7a6334;
-  --grow:#7a4e52; --grow-bg:#f3ece9; --crit-bg:#f5e8e5; --warn-bg:#f3eddf;
+  --bg:#eaeef1; --surface:#ffffff; --ink:#1f2328; --muted:#6b7178; --line:#dde1e5;
+  --accent:#2b2f36; --accent-ink:#ffffff; --crit:#9a4a44; --soft:#f0f2f4; --warn:#7a6334;
+  --grow:#4a7360; --grow-bg:#e6efe9; --crit-bg:#f5e6e4; --warn-bg:#f3eddf;
   --f-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
   --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#171615; --surface:#201f1d; --ink:#ebe7e3; --muted:#a39c95; --line:#34312e;
-  --accent:#c49a9c; --accent-ink:#1b1313; --crit:#d9958d; --soft:#2b2826; --warn:#d2b77a;
-  --grow:#c49a9c; --grow-bg:#2b2826; --crit-bg:#3a2624; --warn-bg:#352e20; color-scheme:dark}}
+  --bg:#15171a; --surface:#1e2125; --ink:#e6e8ea; --muted:#9aa0a6; --line:#30343a;
+  --accent:#d5d9de; --accent-ink:#15171a; --crit:#d9958d; --soft:#272b30; --warn:#d2b77a;
+  --grow:#8fbf9f; --grow-bg:#1f2d25; --crit-bg:#3a2624; --warn-bg:#352e20; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#171615; --surface:#201f1d; --ink:#ebe7e3; --muted:#a39c95; --line:#34312e;
-  --accent:#c49a9c; --accent-ink:#1b1313; --crit:#d9958d; --soft:#2b2826; --warn:#d2b77a;
-  --grow:#c49a9c; --grow-bg:#2b2826; --crit-bg:#3a2624; --warn-bg:#352e20; color-scheme:dark}
+  --bg:#15171a; --surface:#1e2125; --ink:#e6e8ea; --muted:#9aa0a6; --line:#30343a;
+  --accent:#d5d9de; --accent-ink:#15171a; --crit:#d9958d; --soft:#272b30; --warn:#d2b77a;
+  --grow:#8fbf9f; --grow-bg:#1f2d25; --crit-bg:#3a2624; --warn-bg:#352e20; color-scheme:dark}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
 .wrap{max-width:1180px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;margin-bottom:22px}

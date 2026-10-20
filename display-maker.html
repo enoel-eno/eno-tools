@@ -10,14 +10,14 @@
 <style>
 /* Layout: control sheet on the left, live 1600×1800 (8:9) preview on the right; stacks on phones. */
 :root{
-  --bg:#ffffff; --panel:#faf9f7; --fg:#26221f; --muted:#6f6761; --line:#e3dfda; --accent:#7a4e52; --accent-fg:#FFFFFF;
+  --bg:#eaeef1; --panel:#ffffff; --fg:#1f2328; --muted:#6b7178; --line:#dde1e5; --accent:#2b2f36; --accent-fg:#ffffff;
   --f-ui:"Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
   --f-disp:"Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#171615; --panel:#201f1d; --fg:#ebe7e3; --muted:#a39c95; --line:#34312e; --accent:#c49a9c; --accent-fg:#1b1313; color-scheme:dark } }
+  --bg:#15171a; --panel:#1e2125; --fg:#e6e8ea; --muted:#9aa0a6; --line:#30343a; --accent:#d5d9de; --accent-fg:#15171a; color-scheme:dark } }
 :root[data-theme="dark"]{
-  --bg:#171615; --panel:#201f1d; --fg:#ebe7e3; --muted:#a39c95; --line:#34312e; --accent:#c49a9c; --accent-fg:#1b1313; color-scheme:dark }
+  --bg:#15171a; --panel:#1e2125; --fg:#e6e8ea; --muted:#9aa0a6; --line:#30343a; --accent:#d5d9de; --accent-fg:#15171a; color-scheme:dark }
 *{box-sizing:border-box}
 body{margin:0; background:var(--bg); color:var(--fg); font-family:var(--f-ui); font-size:14px; line-height:1.6}
 .wrap{max-width:1440px; margin:0 auto; padding-block:28px 48px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); display:flex; flex-direction:column; gap:20px}
@@ -288,7 +288,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
   const $ = (id) => document.getElementById(id);
 
   const THEMES = [
-    { id:'shiro',  name:'白黒', bg:'#F6F6F4', ink:'#111111', accent:'#5A5A5A', dot:'ink' },
+    { id:'shiro',  name:'白黒', bg:'#FFFFFF', ink:'#111111', accent:'#5A5A5A', dot:'ink' },
     { id:'kuro',   name:'黒白', bg:'#111111', ink:'#F3F3F3', accent:'#ABABAB', dot:'ink' }
   ];
   const FONTS = {
