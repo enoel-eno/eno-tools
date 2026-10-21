@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@500;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Bodoni+Moda:wght@500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Jost:ital,wght@0,500;0,600;1,500&display=swap">
 <style>
-/* Layout: control sheet on the left, live 1600×1800 (8:9) preview on the right; stacks on phones. */
+/* Layout: control sheet on the left, live preview (canvas size set by 形) on the right; stacks on phones. */
 :root{
   --bg:#f6f7f9; --panel:#ffffff; --fg:#1f2328; --muted:#6b7178; --line:#dde1e5; --accent:#2b2f36; --accent-fg:#ffffff;
   --f-ui:"Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
@@ -33,10 +33,12 @@ header p{margin:0; color:var(--muted)}
   .grid{gap:12px}
   .preview{order:-1; flex:1 1 100%; position:sticky; top:0; z-index:5; background:var(--bg); padding-block:8px; gap:8px; box-shadow:0 1px 0 var(--line)}
   .preview .stage{padding:6px}
-  .preview canvas{min-width:0; width:auto; height:min(38vh, 340px); max-width:100%}
+  .preview canvas{min-width:0; width:auto; height:min(28vh, 240px); max-width:100%}
   .preview .fallback img{max-height:28vh; width:auto; max-width:100%}
   .preview .bar small{display:none}
-  .preview .bar{justify-content:flex-end}
+  .controls .tabs{top:var(--pv-h, 0px)}   /* sit just under the pinned preview */
+  .preview .bar{gap:6px}
+  .preview .bar .btn{flex:1 1 100%; min-height:40px}
 }
 fieldset{border:0; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; min-width:0}
 .sec{border-top:1px solid var(--line); padding-top:4px}
@@ -46,12 +48,19 @@ fieldset{border:0; margin:0; padding:0; display:flex; flex-direction:column; gap
 .sec > summary::after{content:""; width:8px; height:8px; border-right:1.5px solid var(--muted); border-bottom:1.5px solid var(--muted); margin-right:4px; transform:rotate(45deg); transition:transform .15s}
 .sec:not([open]) > summary::after{transform:rotate(-45deg)}
 .sec > summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.tabs{display:flex; gap:4px; padding:4px 0 6px; position:sticky; top:0; background:var(--panel); z-index:2}
+.tabs button{flex:1; white-space:nowrap; padding-inline:2px; min-height:44px; font:inherit; font-size:14px; font-weight:700; color:var(--muted); background:transparent; border:0; border-bottom:2px solid var(--line); cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--fg); border-bottom-color:var(--accent)}
+[role=tabpanel][hidden]{display:none}
 .sec > fieldset{padding-bottom:14px}
 .row{display:flex; gap:10px}
 .row > label{flex:1 1 0; min-width:0}
 label{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted)}
-input[type=text]{font:inherit; font-size:14px; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; min-height:40px; width:100%}
-input[type=text]:focus-visible, button:focus-visible, input[type=range]:focus-visible, .drop:focus-within{outline:2px solid var(--accent); outline-offset:2px}
+select{font:inherit; font-size:14px; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; min-height:40px; width:100%}
+input[type=color]{width:100%; height:40px; border:1px solid var(--line); border-radius:6px; background:var(--bg); padding:2px; cursor:pointer}
+textarea::placeholder{font-weight:400}
+input[type=text], textarea{font:inherit; font-weight:400; font-size:14px; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; min-height:40px; width:100%}
+input[type=text]:focus-visible, textarea:focus-visible, button:focus-visible, input[type=range]:focus-visible, .drop:focus-within{outline:2px solid var(--accent); outline-offset:2px}
 input[type=range]{width:100%; accent-color:var(--accent)}
 .drop{border:1.5px dashed var(--line); border-radius:8px; padding:16px; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; color:var(--muted); cursor:pointer; transition:border-color .15s, background .15s}
 .drop.over{border-color:var(--accent); background:color-mix(in srgb, var(--accent) 8%, transparent)}
@@ -60,7 +69,14 @@ input[type=range]{width:100%; accent-color:var(--accent)}
 .diff-list{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px}
 .diff-list:empty{display:none}
 .diff-item{position:relative; aspect-ratio:1; border:1px solid var(--line); border-radius:6px; overflow:hidden; background:var(--bg)}
-.diff-item img{width:100%; height:100%; object-fit:cover; object-position:top}
+.diff-item.empty{border-style:dashed; display:flex; align-items:center; justify-content:center}
+.diff-item .slot-add{width:100%; height:100%; border:0; background:transparent; color:var(--muted); font:inherit; font-size:22px; cursor:pointer}
+.diff-item .num{position:absolute; left:4px; bottom:2px; font-size:11px; line-height:1; color:#fff; background:rgba(0,0,0,.65); border-radius:3px; padding:2px 4px; pointer-events:none}
+.diff-item.empty .num{color:var(--muted); background:transparent}
+#diffBody{display:flex; flex-direction:column; gap:10px}
+#diffBody[hidden]{display:none}
+.diff-item.sel{border-color:var(--accent); box-shadow:0 0 0 2px var(--accent)}
+.diff-item img{cursor:pointer;width:100%; height:100%; object-fit:cover; object-position:top}
 .diff-item button{position:absolute; top:4px; right:4px; width:28px; height:28px; border-radius:50%; border:0; background:rgba(0,0,0,.65); color:#fff; font:inherit; font-size:15px; line-height:1; cursor:pointer}
 .diff-item button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
 .sub{font-size:12px; color:var(--muted); margin:2px 0 -2px}
@@ -75,7 +91,9 @@ input[type=range]{width:100%; accent-color:var(--accent)}
 .seg button + button{border-left:1px solid var(--line)}
 .seg button[aria-pressed="true"]{background:var(--fg); color:var(--bg)}
 .stage{display:flex; justify-content:center; background:repeating-conic-gradient(var(--line) 0 25%, transparent 0 50%) 0 0/16px 16px; border-radius:8px; border:1px solid var(--line); padding:12px}
-canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-width:240px; height:auto; aspect-ratio:8/9; box-shadow:0 1px 3px rgba(0,0,0,.18)}
+canvas{touch-action:none; cursor:grab}
+canvas:active{cursor:grabbing}
+canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .889)); min-width:240px; height:auto; aspect-ratio:var(--cv-ar, 8/9); box-shadow:0 1px 3px rgba(0,0,0,.18)}
 .bar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between}
 .bar small{color:var(--muted)}
 .btn{min-height:44px; padding:0 22px; border-radius:8px; border:0; background:var(--accent); color:var(--accent-fg); font:inherit; font-weight:700; font-size:15px; letter-spacing:.06em; cursor:pointer}
@@ -96,16 +114,22 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
 
   <div class="grid">
     <form class="controls" id="form" autocomplete="off">
+      <div class="tabs" role="tablist" aria-label="設定の種類">
+        <button type="button" role="tab" id="tab-figure" aria-controls="panel-figure" aria-selected="true">立ち絵</button>
+        <button type="button" role="tab" id="tab-text" aria-controls="panel-text" aria-selected="false">テキスト</button>
+        <button type="button" role="tab" id="tab-design" aria-controls="panel-design" aria-selected="false">背景</button>
+      </div>
+      <div role="tabpanel" id="panel-figure" aria-labelledby="tab-figure">
       <details class="sec" open data-sec="立ち絵">
         <summary>立ち絵</summary>
       <fieldset aria-label="立ち絵">
         <label class="drop" id="drop" for="file">
-          <strong id="dropTitle">画像を選ぶ・ここにドロップ</strong>
-          <span id="dropSub">背景透過のPNGがおすすめ。プレビューに直接ドロップしてもOK</span>
-          <input type="file" id="file" accept="image/*">
+          <strong>立ち絵を追加・ここにドロップ</strong>
+          <span>背景透過のPNGがおすすめ（最大6枚）。プレビューに直接ドロップしてもOK</span>
+          <input type="file" id="file" accept="image/*" multiple>
         </label>
-        <button type="button" class="btn ghost" id="removeImg" disabled>立ち絵を削除</button>
-        <label for="zoom">大きさ <span id="zoomVal"></span>
+        <div class="diff-list" id="figList" aria-label="追加した立ち絵"></div>
+        <label for="zoom">選択中の立ち絵の大きさ <span id="zoomVal"></span>
           <input type="range" id="zoom" min="40" max="220">
         </label>
         <div class="row">
@@ -147,40 +171,52 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
       <details class="sec" open data-sec="差分">
         <summary>差分</summary>
       <fieldset aria-label="差分">
+        <div class="seg" role="group" aria-label="差分の表示">
+          <button type="button" id="diffOnBtn" aria-pressed="false">表示する</button>
+          <button type="button" id="diffOffBtn" aria-pressed="true">表示しない</button>
+        </div>
+        <div id="diffBody" hidden>
         <label class="drop" id="diffDrop" for="diffFile">
-          <strong>差分を追加・ここにドロップ</strong>
-          <span>複数まとめて選べます（最大8枚）</span>
+          <strong>差分をまとめて追加・ここにドロップ</strong>
+          <span>空いている枠に順に入ります。枠の「＋」で枠ごとに選ぶこともできます</span>
           <input type="file" id="diffFile" accept="image/*" multiple>
         </label>
-        <div class="diff-list" id="diffList" aria-label="追加した差分"></div>
+        <div class="seg" role="group" aria-label="枠の並び方">
+          <button type="button" id="diffHoriz" aria-pressed="true">横に並べる</button>
+          <button type="button" id="diffVert" aria-pressed="false">縦に並べる</button>
+        </div>
+        <div class="diff-list" id="diffList" aria-label="差分の8つの枠"></div>
         <label for="diffSize">枠の大きさ <span id="diffSizeVal"></span>
-          <input type="range" id="diffSize" min="100" max="420">
+          <input type="range" id="diffSize" min="100" max="1000">
         </label>
-        <label for="diffZoom">枠の中の拡大 <span id="diffZoomVal"></span>
+        <label for="diffZoom">選択中の差分の拡大 <span id="diffZoomVal"></span>
           <input type="range" id="diffZoom" min="80" max="600">
         </label>
         <div class="row">
-          <label for="diffX">枠の中の左右
+          <label for="diffX">選択中の差分の左右
             <input type="range" id="diffX" min="-400" max="400">
           </label>
-          <label for="diffY">枠の中の上下
+          <label for="diffY">選択中の差分の上下
             <input type="range" id="diffY" min="-300" max="1200">
           </label>
         </div>
-        <button type="button" class="btn ghost" id="diffClear" disabled>差分をすべて削除</button>
+        <button type="button" class="btn ghost" id="diffClear" disabled>差分をすべて外す</button>
+        </div>
       </fieldset>
       </details>
+      </div>
 
+      <div role="tabpanel" id="panel-text" aria-labelledby="tab-text" hidden>
       <details class="sec" open data-sec="シナリオ">
         <summary>シナリオ</summary>
       <fieldset aria-label="シナリオ">
         <label for="scenario">シナリオ名
           <input type="text" id="scenario">
         </label>
-        <label for="reading">読み・英題
+        <label for="reading">シナリオふりがな
           <input type="text" id="reading">
         </label>
-        <label for="system">上部の小見出し
+        <label for="system">システム名
           <input type="text" id="system">
         </label>
       </fieldset>
@@ -193,37 +229,19 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
           <label for="ho">HO
             <input type="text" id="ho" placeholder="1">
           </label>
-          <label for="latin">英字表記
+          <label for="latin">名前ふりがな
             <input type="text" id="latin">
           </label>
         </div>
         <label for="name">名前
           <input type="text" id="name">
         </label>
+        <label for="memo">メモ
+          <textarea id="memo" rows="3" placeholder="メモを入力"></textarea>
+        </label>
         <label for="uid">ID
           <input type="text" id="uid" placeholder="@your_id">
         </label>
-      </fieldset>
-      </details>
-
-      <details class="sec" open data-sec="見た目">
-        <summary>見た目</summary>
-      <fieldset aria-label="見た目">
-        <p class="sub">配色</p>
-        <div class="swatches" id="themes" role="group" aria-label="配色"></div>
-        <p class="sub">文字のふち（ふんわりした影）</p>
-        <div class="seg" role="group" aria-label="文字のふち">
-          <button type="button" id="haloOn">あり</button>
-          <button type="button" id="haloOff">なし</button>
-        </div>
-        <label for="haloW">ふちの広がり <span id="haloWVal"></span>
-          <input type="range" id="haloW" min="1" max="16">
-        </label>
-        <p class="sub">額縁</p>
-        <div class="seg" role="group" aria-label="額縁">
-          <button type="button" id="frameOn">あり</button>
-          <button type="button" id="frameOff">なし</button>
-        </div>
       </fieldset>
       </details>
 
@@ -234,7 +252,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
           <label for="szScenario">シナリオ名 <span id="szScenarioVal"></span>
             <input type="range" id="szScenario" min="40" max="200">
           </label>
-          <label for="szReading">読み・英題 <span id="szReadingVal"></span>
+          <label for="szReading">シナリオふりがな <span id="szReadingVal"></span>
             <input type="range" id="szReading" min="40" max="250">
           </label>
         </div>
@@ -242,7 +260,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
           <label for="szName">名前 <span id="szNameVal"></span>
             <input type="range" id="szName" min="40" max="200">
           </label>
-          <label for="szLatin">英字表記 <span id="szLatinVal"></span>
+          <label for="szLatin">名前ふりがな <span id="szLatinVal"></span>
             <input type="range" id="szLatin" min="40" max="250">
           </label>
         </div>
@@ -250,7 +268,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
           <label for="szHo">HO <span id="szHoVal"></span>
             <input type="range" id="szHo" min="40" max="200">
           </label>
-          <label for="szSystem">小見出し <span id="szSystemVal"></span>
+          <label for="szSystem">システム名 <span id="szSystemVal"></span>
             <input type="range" id="szSystem" min="40" max="250">
           </label>
         </div>
@@ -258,11 +276,143 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
           <label for="szId">ID <span id="szIdVal"></span>
             <input type="range" id="szId" min="40" max="250">
           </label>
-          <label aria-hidden="true"></label>
+          <label for="szMemo">メモ <span id="szMemoVal"></span>
+            <input type="range" id="szMemo" min="40" max="250">
+          </label>
         </div>
       </fieldset>
       </details>
 
+      <details class="sec" open data-sec="文字の色">
+        <summary>文字の色</summary>
+      <fieldset aria-label="文字の色">
+        <div class="row">
+          <label for="tc-scenario">シナリオ名
+            <input type="color" id="tc-scenario" data-tc="scenario">
+          </label>
+          <label for="tc-reading">シナリオふりがな
+            <input type="color" id="tc-reading" data-tc="reading">
+          </label>
+        </div>
+        <div class="row">
+          <label for="tc-name">名前
+            <input type="color" id="tc-name" data-tc="name">
+          </label>
+          <label for="tc-latin">名前ふりがな
+            <input type="color" id="tc-latin" data-tc="latin">
+          </label>
+        </div>
+        <div class="row">
+          <label for="tc-ho">HO
+            <input type="color" id="tc-ho" data-tc="ho">
+          </label>
+          <label for="tc-system">システム名
+            <input type="color" id="tc-system" data-tc="system">
+          </label>
+        </div>
+        <div class="row">
+          <label for="tc-uid">ID
+            <input type="color" id="tc-uid" data-tc="uid">
+          </label>
+          <label for="tc-memo">メモ
+            <input type="color" id="tc-memo" data-tc="memo">
+          </label>
+        </div>
+      </fieldset>
+      </details>
+
+      <details class="sec" open data-sec="文字のふち">
+        <summary>文字のふち</summary>
+      <fieldset aria-label="文字のふち">
+        <div class="seg" role="group" aria-label="文字のふち">
+          <button type="button" id="haloOn">あり</button>
+          <button type="button" id="haloOff">なし</button>
+        </div>
+        <div class="seg" role="group" aria-label="ふちのぼかし">
+          <button type="button" id="haloBlurOn">ぼかす</button>
+          <button type="button" id="haloBlurOff">ぼかさない</button>
+        </div>
+        <label for="haloColor">ふちの色
+          <input type="color" id="haloColor">
+        </label>
+        <label for="haloW">ふちの太さ <span id="haloWVal"></span>
+          <input type="range" id="haloW" min="1" max="16">
+        </label>
+      </fieldset>
+      </details>
+      </div>
+
+      <div role="tabpanel" id="panel-design" aria-labelledby="tab-design" hidden>
+      <details class="sec" open data-sec="背景">
+        <summary>背景</summary>
+      <fieldset aria-label="背景">
+        <div class="row">
+          <label for="bgColor">背景色
+            <input type="color" id="bgColor">
+          </label>
+          <label for="inkColor">文字色
+            <input type="color" id="inkColor">
+          </label>
+        </div>
+        <p class="sub">背景画像</p>
+        <label class="drop" id="bgDrop" for="bgFile">
+          <strong id="bgTitle">背景画像を選ぶ・ここにドロップ</strong>
+          <input type="file" id="bgFile" accept="image/*">
+        </label>
+        <label for="bgAlpha">背景画像の濃さ <span id="bgAlphaVal"></span>
+          <input type="range" id="bgAlpha" min="5" max="100">
+        </label>
+        <label for="bgZoom">背景画像の大きさ <span id="bgZoomVal"></span>
+          <input type="range" id="bgZoom" min="100" max="300">
+        </label>
+        <div class="row">
+          <label for="bgX">背景画像の左右
+            <input type="range" id="bgX" min="-800" max="800">
+          </label>
+          <label for="bgY">背景画像の上下
+            <input type="range" id="bgY" min="-900" max="900">
+          </label>
+        </div>
+        <button type="button" class="btn ghost" id="bgRemove" disabled>背景画像を外す</button>
+      </fieldset>
+      </details>
+
+      <details class="sec" open data-sec="デザイン">
+        <summary>デザイン</summary>
+      <fieldset aria-label="デザイン">
+        <label for="ratio">形
+          <select id="ratio">
+            <option value="now">標準（8:9）</option>
+            <option value="square">正方形（1:1）</option>
+            <option value="tall">縦長（2:3）</option>
+            <option value="wide">横長（3:2）</option>
+          </select>
+        </label>
+        <label for="design">枠
+          <select id="design">
+            <option value="none">なし</option>
+            <option value="double">二重線</option>
+            <option value="scale">目盛り</option>
+            <option value="grid">格子</option>
+            <option value="photo">写真</option>
+            <option value="band">黒帯</option>
+            <option value="slim">細枠</option>
+            <option value="bold">太枠</option>
+            <option value="ring">円</option>
+          </select>
+        </label>
+        <label for="diffShape">差分の形
+          <select id="diffShape">
+            <option value="diamond">菱形</option>
+            <option value="square">正方形（1:1）</option>
+            <option value="hex">六角形</option>
+            <option value="polaroid">ポラロイド</option>
+          </select>
+        </label>
+      </fieldset>
+      </details>
+
+      </div>
       <details class="sec" open data-sec="既定の設定">
         <summary>既定の設定</summary>
       <fieldset aria-label="既定の設定">
@@ -277,7 +427,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     <section class="preview" aria-label="プレビュー">
       <div class="stage"><canvas id="cv" width="1600" height="1800" role="img" aria-label="ディスプレイのプレビュー"></canvas></div>
       <div class="bar">
-        <small>空欄の項目は画像に表示されません。</small>
+        <small>絵をドラッグで移動、ホイール／ピンチで拡大縮小。空欄の項目は表示されません。</small>
         <button type="button" class="btn" id="save">PNGで保存</button>
       </div>
       <p class="status" id="status" role="status"></p>
@@ -291,7 +441,8 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
 
 <script>
 (function(){
-  const W = 1600, H = 1800;
+  let W = 1600, H = 1800;
+  const RATIOS = { now: [1600, 1800], square: [1600, 1600], tall: [1600, 2400], wide: [2400, 1600] };
   const STORE = 'trpg-display-defaults-v2';
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
@@ -310,19 +461,19 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
               num:'Jost, "Helvetica Neue", sans-serif', numW:500 }
   };
 
-  const TEXT_IDS  = ['scenario','reading','system','ho','latin','name','uid'];
+  const TEXT_IDS  = ['scenario','reading','system','ho','latin','name','uid','memo'];
   const POS_IDS   = ['zoom','posX','posY','bustAlpha','bustZoom','bustX','bustY'];
-  const SIZE_IDS  = ['szScenario','szReading','szName','szLatin','szHo','szSystem','szId'];
-  const PCT_LABEL = ['zoom','bustAlpha','bustZoom'].concat(SIZE_IDS);
+  const SIZE_IDS  = ['szScenario','szReading','szName','szLatin','szHo','szSystem','szId','szMemo'];
+  const PCT_LABEL = ['zoom','bustAlpha','bustZoom','bgAlpha','bgZoom'].concat(SIZE_IDS);
 
   // Built-in starting state (used until the viewer saves their own)
   const FACTORY = {
-    text: { scenario:'シナリオ名', reading:'Scenario Title', system:'Call of Cthulhu', ho:'1', latin:'CHARACTER', name:'キャラクター名', uid:'' },
+    text: { scenario:'シナリオ名', reading:'Scenario Title', system:'Call of Cthulhu', ho:'1', latin:'CHARACTER', name:'キャラクター名', uid:'', memo:'' },
     num:  { zoom:100, posX:0, posY:0, bustAlpha:50, bustZoom:100, bustX:0, bustY:0,
-            szScenario:100, szReading:100, szName:100, szLatin:100, szHo:50, szSystem:100, szId:100, haloW:2,
+            szScenario:100, szReading:100, szName:100, szLatin:100, szHo:50, szSystem:100, szId:100, szMemo:100, haloW:2, bgAlpha:100, bgZoom:100, bgX:0, bgY:0,
             diffSize:250, diffZoom:260, diffX:0, diffY:0 },
-    halo:true,
-    theme:'shiro', font:'mincho', frame:true, bust:true, image:null
+    halo:true, haloBlur:true, haloCol:'#ffffff',
+    theme:'shiro', font:'mincho', design:'double', diffShape:'diamond', ratio:'now', bust:true, image:null
   };
   function loadSaved(){
     try { const raw = localStorage.getItem(STORE); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
@@ -333,18 +484,24 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     return { text: Object.assign({}, FACTORY.text, d.text), num: Object.assign({}, FACTORY.num, d.num),
              theme: d.theme || FACTORY.theme, font: d.font || FACTORY.font,
              halo: d.halo !== undefined ? d.halo : FACTORY.halo,
-             frame: d.frame !== undefined ? d.frame : FACTORY.frame, bust: d.bust !== undefined ? d.bust : FACTORY.bust,
-             image: d.image || null };
+             haloBlur: d.haloBlur !== undefined ? d.haloBlur : FACTORY.haloBlur, haloCol: d.haloCol !== undefined ? d.haloCol : FACTORY.haloCol,
+             diffShape: d.diffShape || FACTORY.diffShape, ratio: d.ratio || FACTORY.ratio,
+             design: d.design || (d.frame === false ? 'none' : FACTORY.design), bust: d.bust !== undefined ? d.bust : FACTORY.bust,
+             colors: d.colors || null, tcol: d.tcol || {}, bgImage: d.bgImage || null,
+             images: d.images || (d.image ? [{ src: d.image }] : []) };
   };
 
-  const st = { theme: THEMES[0], font:'mincho', frame:true, bust:true, img:null, imgSrc:null };
+  // figs: the standing figures (立ち絵), drawn in order; sel is the one the sliders and layer buttons act on
+  const st = { theme: THEMES[0], font:'mincho', design:'double', diffShape:'diamond', ratio:'now', bust:true, figs:[], sel:-1, tcol:{}, stackTop:0 };
+  const MAX_FIGS = 6;
+  const bustImg = () => st.figs.length ? st.figs[0].img : null;
   const num = (id) => +$(id).value;
   const sz = (id) => num(id) / 100;
 
   // ---------- controls ----------
   function setPressed(ids, active){ ids.forEach(id => $(id).setAttribute('aria-pressed', id === active ? 'true' : 'false')); }
   const DIFF_IDS = ['diffSize','diffZoom','diffX','diffY'];
-  const NUM_IDS = POS_IDS.concat(SIZE_IDS, ['haloW'], DIFF_IDS);
+  const NUM_IDS = POS_IDS.concat(SIZE_IDS, ['haloW', 'bgAlpha', 'bgZoom', 'bgX', 'bgY'], DIFF_IDS);
   function refreshLabels(){
     PCT_LABEL.forEach(id => { const o = $(id + 'Val'); if (o) o.textContent = $(id).value + '%'; });
     $('haloWVal').textContent = $('haloW').value;
@@ -352,30 +509,80 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     $('diffZoomVal').textContent = $('diffZoom').value + '%';
   }
 
-  const themesEl = $('themes');
-  THEMES.forEach((t) => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'sw'; b.id = 'theme-' + t.id;
-    const chip = document.createElement('span'); chip.className = 'chip'; chip.style.background = t.bg;
-    const dot = document.createElement('i'); dot.style.background = t.dot === 'ink' ? t.ink : t.accent; chip.appendChild(dot);
-    const lab = document.createElement('span'); lab.textContent = t.name;
-    b.append(chip, lab);
-    b.addEventListener('click', () => { setTheme(t.id); draw(); });
-    themesEl.appendChild(b);
+  // colour pickers fire continuously while dragged: redraw at most once per frame
+  let drawQueued = false;
+  function drawSoon(){
+    if (drawQueued) return;
+    drawQueued = true;
+    requestAnimationFrame(() => { drawQueued = false; draw(); });
+  }
+  // per-text colour pickers: show the colour in effect
+  const TC_ACCENT = ['reading','latin','memo'];
+  function refreshTc(){
+    TEXT_IDS.forEach(id => {
+      document.querySelector('input[data-tc="' + id + '"]').value = st.tcol[id] || (TC_ACCENT.includes(id) ? mixHex(st.ink, st.bg, 0.31) : st.ink);
+    });
+  }
+  TEXT_IDS.forEach(id => {
+    document.querySelector('input[data-tc="' + id + '"]').addEventListener('input', e => { st.tcol[id] = e.target.value; drawSoon(); });
   });
+  function setColors(bg, ink){
+    st.bg = bg; st.ink = ink; $('bgColor').value = bg; $('inkColor').value = ink; $('haloColor').value = st.haloCol || bg; refreshTc();
+  }
   function setTheme(id){
     st.theme = THEMES.find(t => t.id === id) || THEMES[0];
-    themesEl.querySelectorAll('.sw').forEach(x => x.setAttribute('aria-pressed', x.id === 'theme-' + st.theme.id ? 'true' : 'false'));
+    setColors(st.theme.bg, st.theme.ink);
   }
+  ['bgColor','inkColor'].forEach(id => $(id).addEventListener('input', () => { setColors($('bgColor').value, $('inkColor').value); drawSoon(); }));
+  // the quieter text colour (small print, latin name) sits between ink and background
+  function mixHex(a, b, t){
+    const p = (h) => parseInt(h.slice(1), 16), x = p(a), y = p(b);
+    const c = (s) => Math.round((x >> s & 255) * (1 - t) + (y >> s & 255) * t);
+    return '#' + ((1 << 24) | (c(16) << 16) | (c(8) << 8) | c(0)).toString(16).slice(1);
+  }
+
+  // background image (cover-fitted); "濃さ" fades it into the background colour
+  async function setBgFile(f){
+    if (!f || !f.type.startsWith('image/')){ $('status').textContent = '背景には画像ファイルを選んでください。'; return; }
+    try { setBgImage(await readFile(f), f.name); } catch (e) { $('status').textContent = '画像を読み込めませんでした。'; }
+  }
+  async function setBgImage(src, label){
+    st.bgImg = await loadImg(src); st.bgSrc = src;
+    $('bgTitle').textContent = label; $('bgRemove').disabled = false; draw();
+  }
+  $('bgFile').addEventListener('change', e => { setBgFile(e.target.files[0]); e.target.value = ''; });
+  $('bgRemove').addEventListener('click', () => {
+    st.bgImg = null; st.bgSrc = null; $('bgTitle').textContent = '背景画像を選ぶ・ここにドロップ'; $('bgRemove').disabled = true; draw();
+  });
+  const bgDrop = $('bgDrop');
+  ['dragenter','dragover'].forEach(ev => bgDrop.addEventListener(ev, e => { e.preventDefault(); bgDrop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => bgDrop.addEventListener(ev, e => { e.preventDefault(); bgDrop.classList.remove('over'); }));
+  bgDrop.addEventListener('drop', e => setBgFile(e.dataTransfer.files[0]));
   function setFont(){ st.font = 'mincho'; }
+  function setHaloBlur(on){ st.haloBlur = on; setPressed(['haloBlurOn','haloBlurOff'], on ? 'haloBlurOn' : 'haloBlurOff'); }
   function setHalo(on){ st.halo = on; setPressed(['haloOn','haloOff'], on ? 'haloOn' : 'haloOff'); }
-  function setFrame(on){ st.frame = on; setPressed(['frameOn','frameOff'], on ? 'frameOn' : 'frameOff'); }
+  function setRatio(key){
+    if (!RATIOS[key]) key = 'now';
+    st.ratio = key; $('ratio').value = key;
+    [W, H] = RATIOS[key]; cv.width = W; cv.height = H;
+    cv.style.setProperty('--cv-ar', W + '/' + H); cv.style.setProperty('--cv-r', W / H);
+  }
+  $('ratio').addEventListener('change', e => { setRatio(e.target.value); draw(); });
+  function setDesign(v){ st.design = v; $('design').value = v; }
+  function setDiffShape(v){ st.diffShape = v; $('diffShape').value = v; }
+  $('diffShape').addEventListener('change', e => { setDiffShape(e.target.value); draw(); });
   function setBust(on){ st.bust = on; setPressed(['bustOn','bustOff'], on ? 'bustOn' : 'bustOff'); }
 
   $('haloOn').addEventListener('click', () => { setHalo(true); draw(); });
   $('haloOff').addEventListener('click', () => { setHalo(false); draw(); });
-  $('frameOn').addEventListener('click', () => { setFrame(true); draw(); });
-  $('frameOff').addEventListener('click', () => { setFrame(false); draw(); });
+  $('haloBlurOn').addEventListener('click', () => { setHaloBlur(true); draw(); });
+  $('haloBlurOff').addEventListener('click', () => { setHaloBlur(false); draw(); });
+  $('haloColor').addEventListener('input', e => { st.haloCol = e.target.value; drawSoon(); });
+  $('design').addEventListener('change', e => {
+    setDesign(e.target.value);
+    if (e.target.value === 'ring') setBust(true);   // the ring is meant to sit behind the faded bust-up
+    draw();
+  });
   $('bustOn').addEventListener('click', () => { setBust(true); draw(); });
   $('bustOff').addEventListener('click', () => { setBust(false); draw(); });
 
@@ -394,16 +601,18 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     const d = defaults();
     TEXT_IDS.forEach(id => { $(id).value = d.text[id]; });
     NUM_IDS.forEach(id => { $(id).value = d.num[id]; });
-    setTheme(d.theme); setFont(); setHalo(d.halo); setFrame(d.frame); setBust(d.bust);
+    st.tcol = Object.assign({}, d.tcol); st.haloCol = d.haloCol;
+    setTheme(d.theme); if (d.colors) setColors(d.colors.bg, d.colors.ink); setFont(); setHalo(d.halo); setHaloBlur(d.haloBlur); setRatio(d.ratio); setDesign(d.design); setDiffShape(d.diffShape); setBust(d.bust);
     refreshLabels();
   }
 
   // ---------- defaults: save / clear ----------
   function snapshot(withImage){
-    const s = { text:{}, num:{}, theme: st.theme.id, font: st.font, halo: st.halo, frame: st.frame, bust: st.bust, image: null };
+    const s = { text:{}, num:{}, theme: st.theme.id, font: st.font, halo: st.halo, haloBlur: st.haloBlur, haloCol: st.haloCol, design: st.design, diffShape: st.diffShape, ratio: st.ratio, bust: st.bust, images: [], colors: { bg: st.bg, ink: st.ink }, tcol: Object.assign({}, st.tcol), bgImage: null };
     TEXT_IDS.forEach(id => { s.text[id] = $(id).value; });
     NUM_IDS.forEach(id => { s.num[id] = num(id); });
-    if (withImage && st.imgSrc) s.image = st.imgSrc;
+    if (withImage && st.bgSrc) s.bgImage = st.bgSrc;
+    if (withImage) s.images = st.figs.map(f => ({ src: f.src, x: f.x, y: f.y, zoom: f.zoom }));
     return s;
   }
   $('saveDefault').addEventListener('click', () => {
@@ -431,45 +640,93 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     $('defaultStatus').textContent = '保存した既定を消しました。次に開いたときは最初の状態に戻ります。';
   });
 
-  // ---------- image loading ----------
-  function loadSrc(src, label, keepPositions){
-    const im = new Image();
-    im.onload = () => {
-      st.img = im; st.imgSrc = src;
-      $('dropTitle').textContent = label;
-      $('dropSub').textContent = '別の画像を選ぶと差し替わります';
-      $('removeImg').disabled = false;
-      $('status').textContent = '';
-      if (!keepPositions) applyPositions();
-      draw();
-    };
-    im.onerror = () => {
-      $('status').textContent = '画像を読み込めませんでした。PNG・JPG・WebPを選んでください。';
-    };
-    im.src = src;
+  // ---------- image loading (multiple standing figures) ----------
+  const loadImg = (src) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  const readFile = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+  const figDefaults = () => { const n = defaults().num; return { x: n.posX, y: n.posY, zoom: n.zoom }; };
+
+  // the sliders always show the selected figure; draw() copies them back into it
+  function syncSel(){
+    const f = st.figs[st.sel];
+    if (f){ f.x = num('posX'); f.y = num('posY'); f.zoom = num('zoom'); }
   }
-  function loadFile(f){
-    if (!f || !f.type.startsWith('image/')) { $('status').textContent = '画像ファイルを選んでください。'; return; }
-    const r = new FileReader();
-    r.onload = () => loadSrc(r.result, f.name, false);
-    r.readAsDataURL(f);
+  function selectFig(i){
+    st.sel = i;
+    const f = st.figs[i];
+    if (f){ $('posX').value = f.x; $('posY').value = f.y; $('zoom').value = f.zoom; }
+    refreshLabels(); renderFigList();
   }
-  $('file').addEventListener('change', e => loadFile(e.target.files[0]));
-  $('removeImg').addEventListener('click', () => {
-    st.img = null; st.imgSrc = null;
-    $('file').value = '';
-    $('dropTitle').textContent = '画像を選ぶ・ここにドロップ';
-    $('dropSub').textContent = '背景透過のPNGがおすすめ。プレビューに直接ドロップしてもOK';
-    $('removeImg').disabled = true;
-    $('status').textContent = '立ち絵を削除しました。';
+  function renderFigList(){
+    const list = $('figList');
+    list.textContent = '';
+    st.figs.forEach((f, i) => {
+      const item = document.createElement('div'); item.className = 'diff-item' + (i === st.sel ? ' sel' : '');
+      const im = document.createElement('img'); im.src = f.src; im.alt = '立ち絵 ' + (i + 1) + (i === st.sel ? '（選択中）' : '');
+      im.addEventListener('click', () => { selectFig(i); draw(); });
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = '×';
+      del.setAttribute('aria-label', '立ち絵 ' + (i + 1) + ' を削除');
+      del.addEventListener('click', () => {
+        st.figs.splice(i, 1);
+        selectFig(Math.min(i < st.sel ? st.sel - 1 : st.sel, st.figs.length - 1));
+        $('status').textContent = '立ち絵を削除しました。';
+        draw();
+      });
+      item.append(im, del); list.appendChild(item);
+    });
+  }
+  // items: [{ src, pos? }]; the last one added becomes the selected figure unless `selectIdx` is given
+  async function addFigs(items, selectIdx){
+    for (const it of items){
+      if (st.figs.length >= MAX_FIGS){ $('status').textContent = '立ち絵は' + MAX_FIGS + '枚までです。どれかを削除してから追加してください。'; break; }
+      try { st.figs.push(Object.assign({ img: await loadImg(it.src), src: it.src }, it.pos || figDefaults())); }
+      catch (e) { $('status').textContent = '画像を読み込めませんでした。PNG・JPG・WebPを選んでください。'; }
+    }
+    if (st.figs.length) selectFig(selectIdx !== undefined ? selectIdx : st.figs.length - 1);
     draw();
-  });
+  }
+  async function loadFiles(files){
+    const imgs = Array.from(files || []).filter(f => f.type.startsWith('image/'));
+    if (!imgs.length){ $('status').textContent = '画像ファイルを選んでください。'; return; }
+    $('status').textContent = '';
+    addFigs((await Promise.all(imgs.map(readFile))).map(src => ({ src })));
+  }
+  $('file').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
   const drop = $('drop');
   ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+  drop.addEventListener('drop', e => loadFiles(e.dataTransfer.files));
   cv.addEventListener('dragover', e => e.preventDefault());
-  cv.addEventListener('drop', e => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); });
+  cv.addEventListener('drop', e => { e.preventDefault(); loadFiles(e.dataTransfer.files); });
+
+  // keep the settings tabs just under the pinned preview on phones
+  if (window.ResizeObserver){
+    const pv = document.querySelector('.preview');
+    new ResizeObserver(() => document.documentElement.style.setProperty('--pv-h', pv.getBoundingClientRect().height + 'px')).observe(pv);
+  }
+
+  // ---------- settings tabs ----------
+  const TAB_KEY = 'trpg-display-tab-v1';
+  const TABS = ['figure', 'text', 'design'];
+  function showTab(name){
+    TABS.forEach(t => {
+      $('tab-' + t).setAttribute('aria-selected', t === name ? 'true' : 'false');
+      $('tab-' + t).tabIndex = t === name ? 0 : -1;
+      $('panel-' + t).hidden = t !== name;
+    });
+    try { localStorage.setItem(TAB_KEY, name); } catch (e) {}
+  }
+  TABS.forEach((t, i) => {
+    $('tab-' + t).addEventListener('click', () => showTab(t));
+    $('tab-' + t).addEventListener('keydown', e => {
+      const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (!d) return;
+      const n = TABS[(i + d + TABS.length) % TABS.length];
+      showTab(n); $('tab-' + n).focus(); e.preventDefault();
+    });
+  });
+  let tab0 = 'figure';
+  try { const s = localStorage.getItem(TAB_KEY); if (TABS.includes(s)) tab0 = s; } catch (e) {}
+  showTab(tab0);
 
   // ---------- remember open/closed sections ----------
   const SEC_KEY = 'trpg-display-sections-v1';
@@ -484,44 +741,85 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     } catch (e) {}
   }));
 
-  // ---------- variants (差分) ----------
+  // ---------- variants (差分): 8 fixed slots, only slots holding an image are drawn ----------
   const MAX_DIFFS = 8;
-  st.diffs = [];
+  st.diffs = new Array(MAX_DIFFS).fill(null);
+  st.dsel = -1;
+  st.diffOn = false; st.diffVert = false;
+  const diffCount = () => st.diffs.filter(Boolean).length;
+  function setDiffOn(on){
+    st.diffOn = on;
+    setPressed(['diffOnBtn','diffOffBtn'], on ? 'diffOnBtn' : 'diffOffBtn');
+    $('diffBody').hidden = !on;
+  }
+  // the 枠の中 sliders show the selected slot's variant; draw() copies them back into it
+  function syncDiffSel(){
+    const d = st.diffs[st.dsel];
+    if (d){ d.x = num('diffX'); d.y = num('diffY'); d.zoom = num('diffZoom'); }
+  }
+  function selectDiff(i){
+    st.dsel = i;
+    const d = st.diffs[i];
+    if (d){ $('diffX').value = d.x; $('diffY').value = d.y; $('diffZoom').value = d.zoom; }
+    refreshLabels(); renderDiffList();
+  }
+  async function setDiff(i, f){
+    if (!f || !f.type.startsWith('image/')){ $('status').textContent = '差分には画像ファイルを選んでください。'; return; }
+    try {
+      const src = await readFile(f), im = await loadImg(src), n = defaults().num;
+      st.diffs[i] = { img: im, src, x: n.diffX, y: n.diffY, zoom: n.diffZoom };
+      selectDiff(i); draw();
+    } catch (e) { $('status').textContent = '画像を読み込めませんでした。PNG・JPG・WebPを選んでください。'; }
+  }
   function renderDiffList(){
     const list = $('diffList');
     list.textContent = '';
     st.diffs.forEach((d, i) => {
-      const item = document.createElement('div'); item.className = 'diff-item';
-      const im = document.createElement('img'); im.src = d.src; im.alt = '差分 ' + (i + 1);
-      const del = document.createElement('button'); del.type = 'button'; del.textContent = '×';
-      del.setAttribute('aria-label', '差分 ' + (i + 1) + ' を削除');
-      del.addEventListener('click', () => { st.diffs.splice(i, 1); renderDiffList(); draw(); });
-      item.append(im, del); list.appendChild(item);
+      const item = document.createElement('div');
+      item.className = 'diff-item' + (d ? '' : ' empty') + (i === st.dsel ? ' sel' : '');
+      const badge = document.createElement('span'); badge.className = 'num'; badge.textContent = i + 1;
+      if (d){
+        const im = document.createElement('img'); im.src = d.src; im.alt = '枠 ' + (i + 1) + (i === st.dsel ? '（選択中）' : '');
+        im.addEventListener('click', () => { selectDiff(i); draw(); });
+        const del = document.createElement('button'); del.type = 'button'; del.textContent = '×';
+        del.setAttribute('aria-label', '枠 ' + (i + 1) + ' の絵を外す');
+        del.addEventListener('click', () => { st.diffs[i] = null; renderDiffList(); draw(); });
+        item.append(im, del, badge);
+      } else {
+        const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.hidden = true;
+        inp.addEventListener('change', () => { setDiff(i, inp.files[0]); });
+        const add = document.createElement('button'); add.type = 'button'; add.className = 'slot-add'; add.textContent = '＋';
+        add.setAttribute('aria-label', '枠 ' + (i + 1) + ' に絵を入れる');
+        add.addEventListener('click', () => inp.click());
+        item.append(inp, add, badge);
+      }
+      // drop an image straight onto a slot
+      item.addEventListener('dragover', e => e.preventDefault());
+      item.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); setDiff(i, e.dataTransfer.files[0]); });
+      list.appendChild(item);
     });
-    $('diffClear').disabled = st.diffs.length === 0;
+    $('diffClear').disabled = diffCount() === 0;
   }
-  function addDiffFiles(files){
+  // bulk add: fills the empty slots in order
+  async function addDiffFiles(files){
     const imgs = Array.from(files || []).filter(f => f.type.startsWith('image/'));
     if (!imgs.length){ $('status').textContent = '差分には画像ファイルを選んでください。'; return; }
-    const room = MAX_DIFFS - st.diffs.length;
-    if (room <= 0){ $('status').textContent = '差分は8枚までです。どれかを削除してから追加してください。'; return; }
-    if (imgs.length > room) $('status').textContent = '差分は8枚までなので、最初の' + room + '枚だけ追加しました。';
-    imgs.slice(0, room).forEach(f => {
-      const r = new FileReader();
-      r.onload = () => {
-        const im = new Image();
-        im.onload = () => { st.diffs.push({ img: im, src: r.result }); renderDiffList(); draw(); };
-        im.src = r.result;
-      };
-      r.readAsDataURL(f);
-    });
+    const empty = st.diffs.map((d, i) => d ? -1 : i).filter(i => i >= 0);
+    if (!empty.length){ $('status').textContent = '8つの枠がすべて埋まっています。どれかを外してから追加してください。'; return; }
+    if (imgs.length > empty.length) $('status').textContent = '空き枠は' + empty.length + 'つなので、最初の' + empty.length + '枚だけ入れました。';
+    for (let k = 0; k < Math.min(imgs.length, empty.length); k++) await setDiff(empty[k], imgs[k]);
   }
   $('diffFile').addEventListener('change', e => { addDiffFiles(e.target.files); e.target.value = ''; });
   const diffDrop = $('diffDrop');
   ['dragenter','dragover'].forEach(ev => diffDrop.addEventListener(ev, e => { e.preventDefault(); diffDrop.classList.add('over'); }));
   ['dragleave','drop'].forEach(ev => diffDrop.addEventListener(ev, e => { e.preventDefault(); diffDrop.classList.remove('over'); }));
   diffDrop.addEventListener('drop', e => addDiffFiles(e.dataTransfer.files));
-  $('diffClear').addEventListener('click', () => { st.diffs = []; renderDiffList(); draw(); });
+  $('diffClear').addEventListener('click', () => { st.diffs.fill(null); renderDiffList(); draw(); });
+  $('diffHoriz').addEventListener('click', () => { st.diffVert = false; setPressed(['diffHoriz','diffVert'], 'diffHoriz'); draw(); });
+  $('diffVert').addEventListener('click', () => { st.diffVert = true; setPressed(['diffHoriz','diffVert'], 'diffVert'); draw(); });
+  $('diffOnBtn').addEventListener('click', () => { setDiffOn(true); draw(); });
+  $('diffOffBtn').addEventListener('click', () => { setDiffOn(false); draw(); });
+  renderDiffList();
 
   // ---------- drawing helpers ----------
   function rgba(hex, a){
@@ -529,14 +827,20 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
   }
   // text with an optional halo in the background color (white on 白黒, black on 黒白)
-  let haloColor = null, haloWidth = 0;
+  let haloColor = null, haloWidth = 0, haloBlur = true;
   function txt(t, x, y){
     if (haloColor){
-      // soft glow: the glyph is drawn twice with a blurred shadow in the background color
       ctx.save();
-      ctx.shadowColor = haloColor; ctx.shadowBlur = haloWidth * 6; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
-      ctx.fillText(t, x, y);
-      ctx.fillText(t, x, y);
+      if (haloBlur){
+        // soft glow: the glyph is drawn twice with a blurred shadow
+        ctx.shadowColor = haloColor; ctx.shadowBlur = haloWidth * 6; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+        ctx.fillText(t, x, y);
+        ctx.fillText(t, x, y);
+      } else {
+        // hard outline
+        ctx.strokeStyle = haloColor; ctx.lineWidth = haloWidth * 2; ctx.lineJoin = 'round';
+        ctx.strokeText(t, x, y);
+      }
       ctx.restore();
     }
     ctx.fillText(t, x, y);
@@ -605,38 +909,102 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     });
   }
 
-  function imageRect(){
-    const im = st.img; if (!im) return null;
+  function imageRect(f){
+    const im = f.img;
     const ratio = im.naturalWidth / im.naturalHeight;
-    let w = Math.min(900, 1700 * ratio);
+    const sf = H / 1800;
+    let w = Math.min(900, 1700 * ratio) * sf;
     let h = w / ratio;
-    const z = sz('zoom');
+    const z = f.zoom / 100;
     w *= z; h *= z;
-    return { x: 760 - w / 2 + num('posX'), y: 70 - num('posY'), w, h };
+    return { x: W * 0.475 - w / 2 + f.x, y: 70 - f.y, w, h };
   }
 
   // faded copy of the whole art, placed large so the default view is roughly a bust-up
+  function bustRect(){
+    const ratio = bustImg().naturalWidth / bustImg().naturalHeight;
+    const dw = 1500 * sz('bustZoom') * (H / 1800);
+    return { x: W * 0.7 - dw / 2 + num('bustX'), y: -40 - num('bustY'), w: dw, h: dw / ratio };
+  }
   function drawBust(){
-    const im = st.img; if (!im || !st.bust) return;
-    const ratio = im.naturalWidth / im.naturalHeight;
-    const dw = 1500 * sz('bustZoom'), dh = dw / ratio;
+    const im = bustImg(); if (!im || !st.bust) return;
+    const b = bustRect();
     ctx.save(); ctx.globalAlpha = num('bustAlpha') / 100;
-    ctx.drawImage(im, 1120 - dw / 2 + num('bustX'), -40 - num('bustY'), dw, dh);
+    ctx.drawImage(im, b.x, b.y, b.w, b.h);
     ctx.restore();
   }
 
+  // ---------- designs (frame / decoration sets; text positions never change) ----------
+  function barcode(x, y, w, h, color){
+    const p = [14, 7, 7, 18, 7, 11, 7, 20, 7, 7, 14, 7, 16, 7, 7, 18, 7, 11, 7, 14, 7, 18, 7, 9];
+    ctx.fillStyle = color;
+    for (let cx = x, i = 0; cx < x + w; i++){ const bw = p[i % p.length]; if (i % 2 === 0) ctx.fillRect(cx, y, Math.min(bw, x + w - cx), h); cx += bw; }
+  }
+  const bandTop = () => Math.min(st.stackTop - 36, H - 240);
+  // behind the art
+  function drawBack(T){
+    if (st.design === 'grid'){
+      ctx.strokeStyle = rgba(T.ink, 0.15); ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let x = 100; x < W; x += 200){ ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+      for (let y = 100; y < H; y += 200){ ctx.moveTo(0, y); ctx.lineTo(W, y); }
+      ctx.stroke();
+    }
+    if (st.design === 'ring' || st.design === 'bold'){
+      ctx.save(); ctx.strokeStyle = T.ink; ctx.lineWidth = 12; ctx.setLineDash([50, 40]);
+      ctx.beginPath(); ctx.arc(W / 2, H * 0.478, Math.min(W, H) * 0.3, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+  }
+  // frame and decorations: behind every standing figure, in front of the background
   function drawFrame(T){
-    if (!st.frame) return;
-    ctx.strokeStyle = rgba(T.ink, 0.55); ctx.lineWidth = 1.75; ctx.strokeRect(40.5, 40.5, W - 81, H - 81);
-    ctx.lineWidth = 0.75; ctx.strokeRect(52.5, 52.5, W - 105, H - 105);
-    ctx.fillStyle = T.ink;
-    [[40,40],[W-40,40],[40,H-40],[W-40,H-40]].forEach(([x,y]) => { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI/4); ctx.fillRect(-6,-6,12,12); ctx.restore(); });
+    const d = st.design, ink = T.ink;
+    if (d === 'none') return;
+    if (d === 'double'){
+      ctx.strokeStyle = rgba(ink, 0.55); ctx.lineWidth = 1.75; ctx.strokeRect(40.5, 40.5, W - 81, H - 81);
+      ctx.lineWidth = 0.75; ctx.strokeRect(52.5, 52.5, W - 105, H - 105);
+      ctx.fillStyle = ink;
+      [[40,40],[W-40,40],[40,H-40],[W-40,H-40]].forEach(([x,y]) => { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI/4); ctx.fillRect(-6,-6,12,12); ctx.restore(); });
+      return;
+    }
+    ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineJoin = 'miter';
+    if (d === 'scale'){
+      ctx.lineWidth = 5; ctx.strokeRect(70, 70, W - 140, H - 140);
+      ctx.lineWidth = 4; ctx.beginPath();
+      for (let i = 0, x = 120; x <= W - 120; i++, x += 48){
+        const l = i % 4 ? 18 : 36;
+        ctx.moveTo(x, 70); ctx.lineTo(x, 70 + l); ctx.moveTo(x, H - 70); ctx.lineTo(x, H - 70 - l);
+      }
+      ctx.stroke();
+    }
+    if (d === 'grid'){
+      ctx.lineWidth = 6; ctx.beginPath();
+      ctx.moveTo(120, 60); ctx.lineTo(W - 120, 60); ctx.lineTo(W - 60, 120); ctx.lineTo(W - 60, H - 60); ctx.lineTo(200, H - 60); ctx.lineTo(60, H - 200); ctx.lineTo(60, 120); ctx.closePath(); ctx.stroke();
+    }
+    if (d === 'photo'){
+      ctx.lineWidth = 50; ctx.strokeRect(50, 50, W - 100, H - 100);
+      ctx.lineWidth = 5; ctx.strokeRect(100, 100, W - 200, H - 200);
+    }
+    if (d === 'band' || d === 'slim' || d === 'ring'){
+      ctx.lineWidth = 8; ctx.strokeRect(80, 80, W - 160, H - 160);
+    }
+    if (d === 'bold'){
+      ctx.beginPath(); ctx.rect(40, 40, W - 80, H - 80); ctx.rect(100, 100, W - 200, H - 200); ctx.fill('evenodd');
+      ctx.beginPath(); ctx.arc(W / 2, 100, 220, 0, Math.PI); ctx.fill();
+    }
+    if (d === 'band'){
+      const top = bandTop();
+      ctx.fillRect(0, top, W, H - top);
+    }
+    if (d === 'band' || d === 'bold' || d === 'slim') ctx.fillRect(W - 560, 150, 480, 24);
+    if (d === 'ring') ctx.fillRect(W - 780, 120, 700, 24);
+    if (d === 'band' || d === 'bold' || d === 'slim') barcode(W - 610, Math.min(st.stackTop - 150, H - 400), 500, 100, ink);
   }
 
   // shown only in the preview while no art is loaded; never part of the saved PNG
   function drawPlaceholder(T, F){
     const x = 760 - 230, y = 150, w = 460, h = 1480;
     ctx.save();
+    ctx.translate(W / 2 - 800, H / 2 - 900);
     ctx.strokeStyle = rgba(T.ink, 0.35); ctx.lineWidth = 3; ctx.setLineDash([16, 12]);
     ctx.strokeRect(x, y, w, h);
     ctx.setLineDash([]);
@@ -654,8 +1022,8 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
   // variants: squares turned 45° (diamonds) packed in a lattice from the bottom-left corner.
   // Each row is shifted by half a step, so 3 makes a small pyramid and more build a tidy diagonal grid.
   // "枠の大きさ" is the diamond's overall width/height; it shrinks automatically if the stack gets too tall.
-  function diffLayout(n, D){
-    const maxW = 540, maxH = 720;
+  function diffLayout(n, D, vertical){
+    const maxW = vertical ? H - 220 : W - 220, maxH = vertical ? W - 220 : H - 220;   // rows run along the long axis; vertical is the transpose
     for (let size = D; size >= 60; size -= 4){
       const half = size / 2, hp = half + size * 0.05;          // neighbours sit one diagonal step apart
       const cap = Math.max(1, Math.floor((maxW - size) / (2 * hp)) + 1);
@@ -670,51 +1038,177 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
       if (h <= maxH || size <= 60) return { size, half, hp, pos };
     }
   }
+  // square / hexagon / polaroid cells sit on a plain grid instead of the diamond lattice
+  const diffKind = () => st.diffShape;
+  function gridLayout(n, D, vertical){
+    const maxW = vertical ? H - 220 : W - 220, maxH = vertical ? W - 220 : H - 220;
+    for (let size = D; size >= 60; size -= 4){
+      const pitch = size * 1.14, cap = Math.max(1, Math.floor((maxW - size) / pitch) + 1);
+      const pos = [];
+      for (let i = 0; i < n; i++) pos.push([2 * (i % cap), 2 * Math.floor(i / cap)]);
+      const rows = Math.floor((n - 1) / cap) + 1;
+      if (size + (rows - 1) * pitch <= maxH || size <= 60) return { size, half: size / 2, hp: pitch / 2, pos };
+    }
+  }
+  const diffLayoutNow = () => (diffKind() === 'diamond' ? diffLayout : gridLayout)(MAX_DIFFS, num('diffSize'), st.diffVert);
   function drawDiffs(T){
-    const n = st.diffs.length; if (!n) return null;
-    const L = diffLayout(n, num('diffSize'));
+    st.cells = [];
+    if (!st.diffOn || !diffCount()) return;
+    const kind = diffKind();
+    const L = diffLayoutNow();
     const D = L.size, half = L.half, hp = L.hp;
     const k = D / 150;
     const baseX = 110 + half, baseY = H - 110 - half;
-    let top = Infinity;
-    const diamond = (cx, cy, r) => { ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath(); };
+    const outline = (cx, cy, r) => {
+      ctx.beginPath();
+      if (kind === 'square') ctx.rect(cx - r, cy - r, 2 * r, 2 * r);
+      else if (kind === 'hex'){ for (let j = 0; j < 6; j++){ const an = Math.PI / 3 * j - Math.PI / 2; ctx[j ? 'lineTo' : 'moveTo'](cx + r * 1.05 * Math.cos(an), cy + r * 1.05 * Math.sin(an)); } ctx.closePath(); }
+      else { ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath(); }
+    };
     st.diffs.forEach((d, i) => {
+      if (!d) return;
       const [a, b] = L.pos[i];
-      const cx = baseX + a * hp, cy = baseY - b * hp;
-      top = Math.min(top, cy - half);
+      const cx = baseX + (st.diffVert ? b : a) * hp, cy = baseY - (st.diffVert ? a : b) * hp;
+      st.cells[i] = { cx, cy, half, kind };
       const im = d.img, ratio = im.naturalWidth / im.naturalHeight;
-      const dw = D * num('diffZoom') / 100, dh = dw / ratio;
+      const dw = D * d.zoom / 100, dh = dw / ratio;
+      if (kind === 'polaroid'){
+        const w = D * 0.92, h = D * 1.06, m = w * 0.07, iw = w - 2 * m, ih = h - m - h * 0.2;
+        ctx.save();
+        ctx.translate(cx, cy); ctx.rotate([-4, 3, -2, 4, -3, 2, -4, 3][i % 8] * Math.PI / 180);
+        ctx.fillStyle = T.bg; ctx.fillRect(-w / 2, -h / 2, w, h);
+        ctx.strokeStyle = rgba(T.ink, 0.75); ctx.lineWidth = 2.5; ctx.strokeRect(-w / 2, -h / 2, w, h);
+        ctx.beginPath(); ctx.rect(-w / 2 + m, -h / 2 + m, iw, ih); ctx.clip();
+        ctx.drawImage(im, -dw / 2 + d.x * k, -h / 2 + m - D * 0.4 - d.y * k, dw, dh);
+        ctx.restore();
+        return;
+      }
       const x0 = cx - half, y0 = cy - half;
       ctx.save();
-      diamond(cx, cy, half); ctx.clip();
+      outline(cx, cy, half); ctx.clip();
       ctx.fillStyle = T.bg; ctx.fill();
-      ctx.drawImage(im, x0 + D / 2 - dw / 2 + num('diffX') * k, y0 - D * 0.4 - num('diffY') * k, dw, dh);
+      ctx.drawImage(im, x0 + D / 2 - dw / 2 + d.x * k, y0 - D * 0.4 - d.y * k, dw, dh);
       ctx.restore();
-      ctx.strokeStyle = rgba(T.ink, 0.75); ctx.lineWidth = 1.5; ctx.lineJoin = 'miter';
-      diamond(cx, cy, half - 0.75); ctx.stroke();
-      ctx.strokeStyle = rgba(T.ink, 0.3); ctx.lineWidth = 1;
-      diamond(cx, cy, half + 7); ctx.stroke();
+      ctx.strokeStyle = rgba(T.ink, 0.75); ctx.lineWidth = kind === 'diamond' ? 1.5 : 3; ctx.lineJoin = 'miter';
+      outline(cx, cy, half - 0.75); ctx.stroke();
+      if (kind === 'diamond'){
+        ctx.strokeStyle = rgba(T.ink, 0.3); ctx.lineWidth = 1;
+        outline(cx, cy, half + 7); ctx.stroke();
+      }
+      if (st.design === 'band'){   // keep the cell readable where it crosses onto the black band
+        ctx.strokeStyle = T.bg; ctx.lineWidth = 2;
+        outline(cx, cy, half - 7); ctx.stroke();
+      }
     });
-    return top - 7;
   }
+
+  // ---------- drag / pinch the selected layer in the preview ----------
+  let layer = 'main', dragging = false;
+  const LAYERS = {
+    main: { x:'posX',    y:'posY',    zoom:'zoom',     ok: () => st.figs.length > 0,   unit: () => 1 },
+    bust: { x:'bustX',   y:'bustY',   zoom:'bustZoom', ok: () => st.figs.length > 0 && st.bust, unit: () => 1 },
+    diff: { x:'diffX',   y:'diffY',   zoom:'diffZoom', ok: () => st.diffOn && diffCount() > 0,
+            unit: () => diffLayoutNow().size / 150 }
+  };
+  function setVal(id, v){ $(id).value = v; refreshLabels(); }
+
+  const ptrs = new Map();
+  let g = null;
+  const scale = () => W / cv.getBoundingClientRect().width;
+  const centre = (pts) => ({ x: pts.reduce((a, p) => a + p.x, 0) / pts.length, y: pts.reduce((a, p) => a + p.y, 0) / pts.length });
+  const spread = (pts) => pts.length > 1 ? Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) : 0;
+  // (re)start from the current values whenever the number of fingers changes
+  function gesture(){
+    const L = LAYERS[layer], pts = Array.from(ptrs.values()), c = centre(pts);
+    g = { x: num(L.x), y: num(L.y), z: num(L.zoom), cx: c.x, cy: c.y, d: spread(pts) };
+  }
+  // is the art opaque at canvas point (px, py), given the rect it is drawn in?
+  const probe = document.createElement('canvas'); probe.width = probe.height = 1;
+  const pctx = probe.getContext('2d', { willReadFrequently: true });
+  function opaqueAt(im, r, px, py){
+    if (px < r.x || py < r.y || px > r.x + r.w || py > r.y + r.h) return false;
+    const sx = Math.min(im.naturalWidth - 1, Math.floor((px - r.x) / r.w * im.naturalWidth));
+    const sy = Math.min(im.naturalHeight - 1, Math.floor((py - r.y) / r.h * im.naturalHeight));
+    try {
+      pctx.clearRect(0, 0, 1, 1); pctx.drawImage(im, sx, sy, 1, 1, 0, 0, 1, 1);
+      return pctx.getImageData(0, 0, 1, 1).data[3] > 16;
+    } catch (err) { return true; }
+  }
+  // touching art selects its layer: variants (front) → standing figures → background figure; empty space keeps the current layer
+  function pickLayer(e){
+    const bb = cv.getBoundingClientRect(), s = scale(), px = (e.clientX - bb.left) * s, py = (e.clientY - bb.top) * s;
+    for (let i = (st.cells || []).length - 1; i >= 0; i--){
+      const c = st.cells[i];
+      if (c && (c.kind === 'diamond' ? Math.abs(px - c.cx) + Math.abs(py - c.cy) : Math.max(Math.abs(px - c.cx), Math.abs(py - c.cy))) <= c.half){ layer = 'diff'; if (i !== st.dsel) selectDiff(i); return; }
+    }
+    for (let i = st.figs.length - 1; i >= 0; i--){
+      if (opaqueAt(st.figs[i].img, imageRect(st.figs[i]), px, py)){ layer = 'main'; if (i !== st.sel) selectFig(i); return; }
+    }
+    if (st.bust && st.figs.length && opaqueAt(bustImg(), bustRect(), px, py)) layer = 'bust';
+  }
+  cv.addEventListener('pointerdown', e => {
+    if (!ptrs.size) pickLayer(e);
+    if (!LAYERS[layer].ok()) return;
+    cv.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    gesture(); dragging = true; draw(); e.preventDefault();
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!ptrs.has(e.pointerId) || !g) return;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const L = LAYERS[layer], pts = Array.from(ptrs.values()), c = centre(pts), k = scale() / L.unit();
+    setVal(L.x, Math.round(g.x + (c.x - g.cx) * k));
+    setVal(L.y, Math.round(g.y - (c.y - g.cy) * k));
+    if (pts.length > 1 && g.d > 0) setVal(L.zoom, Math.round(g.z * spread(pts) / g.d));
+    draw();
+  });
+  const endPtr = e => {
+    if (!ptrs.delete(e.pointerId)) return;
+    if (ptrs.size) gesture(); else { g = null; dragging = false; }
+    draw();
+  };
+  cv.addEventListener('pointerup', endPtr);
+  cv.addEventListener('pointercancel', endPtr);
+  cv.addEventListener('wheel', e => {
+    const L = LAYERS[layer]; if (!L.ok()) return;
+    e.preventDefault();
+    setVal(L.zoom, Math.round(num(L.zoom) * Math.exp(-e.deltaY * 0.001)));
+    draw();
+  }, { passive: false });
 
   let exporting = false;
   function draw(){
-    const T = st.theme, F = FONTS[st.font];
+    syncSel(); syncDiffSel();
+    const T = Object.assign({}, st.theme, { bg: st.bg, ink: st.ink, accent: mixHex(st.ink, st.bg, 0.31) }), F = FONTS[st.font];
+    // per-text colour override (also replaces the quieter accent tone of that text)
+    const Tinv = Object.assign({}, T, { ink: T.bg, accent: mixHex(T.bg, T.ink, 0.31) });
+    const onBand = (id) => (st.design === 'band' && ['ho','name','latin','memo','uid'].includes(id)) || ((st.design === 'band' || st.design === 'bold') && id === 'system');
+    const tt = (id) => st.tcol[id] ? Object.assign({}, T, { ink: st.tcol[id], accent: st.tcol[id] }) : (onBand(id) ? Tinv : T);
     const v = (id) => $(id).value.trim();
 
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = T.bg; ctx.fillRect(0, 0, W, H);
+    if (st.bgImg){
+      const im = st.bgImg, s = Math.max(W / im.naturalWidth, H / im.naturalHeight) * sz('bgZoom'), w = im.naturalWidth * s, h = im.naturalHeight * s;
+      ctx.save(); ctx.globalAlpha = num('bgAlpha') / 100; ctx.drawImage(im, (W - w) / 2 + num('bgX'), (H - h) / 2 - num('bgY'), w, h); ctx.restore();
+    }
     ctx.fillStyle = rgba(T.ink, 0.07);
-    for (let y = 9; y < H; y += 18) for (let x = 9; x < W; x += 18){ ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2); ctx.fill(); }
+    ctx.beginPath();   // one path for all the dots: a single fill instead of thousands
+    for (let y = 9; y < H; y += 18) for (let x = 9; x < W; x += 18){ ctx.moveTo(x + 1, y); ctx.arc(x, y, 1, 0, Math.PI * 2); }
+    ctx.fill();
 
-    drawBust();
-    const r = imageRect();
-    if (r) ctx.drawImage(st.img, r.x, r.y, r.w, r.h);
-    else if (!exporting) drawPlaceholder(T, F);
+    drawBack(T);
     drawFrame(T);
-    const diffTop = drawDiffs(T);
-    haloColor = st.halo ? (T.id === 'kuro' ? '#000000' : '#FFFFFF') : null;
+    drawBust();
+    st.figs.forEach(f => { const r = imageRect(f); ctx.drawImage(f.img, r.x, r.y, r.w, r.h); });
+    if (!st.figs.length && !exporting) drawPlaceholder(T, F);
+    if (dragging && !exporting && st.figs.length && layer !== 'diff'){
+      const o = layer === 'main' ? imageRect(st.figs[st.sel]) : bustRect();
+      ctx.save(); ctx.strokeStyle = '#2f7cf6'; ctx.lineWidth = 4; ctx.setLineDash([18, 12]);
+      ctx.strokeRect(o.x, o.y, o.w, o.h); ctx.restore();
+    }
+    drawDiffs(T);
+    haloColor = st.halo ? (st.haloCol || T.bg) : null; haloBlur = st.haloBlur;
     haloWidth = num('haloW');
 
     const BASE = H - 110;
@@ -722,17 +1216,37 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     // ---------- bottom-right: ID at the very bottom, HO / name / latin stacked above it, right-aligned ----------
     const R = W - 110, maxW = 640;
     let bottom = BASE;
+    let stackTopNew = BASE;
 
     const uid = v('uid');
     if (uid){
       const is = 26 * sz('szId');
       ctx.font = '500 ' + is + 'px ' + F.lat;
       const w = spacedWidth(uid, is * 0.12);
-      ctx.fillStyle = T.ink;
+      ctx.fillStyle = tt('uid').ink;
       drawSpaced(uid, R - w, BASE, is * 0.12);
-      ctx.fillStyle = rgba(T.ink, 0.6);
+      ctx.fillStyle = rgba(tt('uid').ink, 0.6);
       ctx.fillRect(R - w - 58, BASE - is * 0.32, 40, 1.25);
       bottom = BASE - is - 46;
+    }
+
+    // memo (差分情報など): small right-aligned lines between the name block and the ID
+    const memoRaw = $('memo').value.replace(/\s+$/, '');
+    if (memoRaw.trim()){
+      const ms = 26 * sz('szMemo'), lh = ms * 1.55;
+      ctx.font = '500 ' + ms + 'px ' + F.jp;
+      const lines = [];
+      memoRaw.split('\n').forEach(raw => {
+        let cur = '';
+        for (const ch of raw){
+          if (cur && ctx.measureText(cur + ch).width > maxW){ lines.push(cur); cur = ch; } else cur += ch;
+        }
+        lines.push(cur);
+      });
+      ctx.fillStyle = tt('memo').accent; ctx.textAlign = 'right';
+      lines.forEach((ln, i) => txt(ln, R, bottom - (lines.length - 1 - i) * lh));
+      ctx.textAlign = 'left';
+      bottom -= (lines.length - 1) * lh + ms * 0.8 + 34;
     }
 
     const latin = v('latin');
@@ -743,7 +1257,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
       ls *= sz('szLatin');
       ctx.font = '500 ' + ls + 'px ' + F.lat;
       lw = spacedWidth(latin, ls * 0.6);
-      ctx.fillStyle = T.accent;
+      ctx.fillStyle = tt('latin').accent;
       drawSpaced(latin, R - lw, bottom, ls * 0.6);
       bottom -= ls * 0.72 + 34;
     }
@@ -756,17 +1270,18 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
       ns *= sz('szName');
       ctx.font = F.jpName + ' ' + ns + 'px ' + F.jp;
       nw = spacedWidth(name, ns * 0.06);
-      ctx.fillStyle = T.ink;
+      ctx.fillStyle = tt('name').ink;
       const nb = bottom - ns * 0.1;
       drawSpaced(name, R - nw + ns * 0.02, nb, ns * 0.06);
       bottom = nb - ns * 0.9 - 30;
     }
 
+    stackTopNew = bottom;
     const hoRaw = v('ho');
     const ho = hoRaw.replace(/^HO\s*/i, '');
     if (ho){
       const ruleW = Math.min(maxW, 420);
-      ctx.fillStyle = T.ink; ctx.fillRect(R - ruleW, bottom, ruleW, 1.25);
+      ctx.fillStyle = tt('ho').ink; ctx.fillRect(R - ruleW, bottom, ruleW, 1.25);
       const hb = bottom - 30;
       ctx.font = F.latW + ' 24px ' + F.lat;
       const lw = spacedWidth('HANDOUT', 7.2);
@@ -775,18 +1290,23 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
       let hw = hoWidth(hoParts(ho), hs, F);
       if (hw > room) hs = hs * room / hw;
       hs *= sz('szHo');
+      stackTopNew = hb - hs * 0.8;   // top of the HO digits
       hw = hoWidth(hoParts(ho), hs, F);
       const x0 = R - hw - 26 - lw;
-      ctx.font = F.latW + ' 24px ' + F.lat; ctx.fillStyle = T.accent;
+      ctx.font = F.latW + ' 24px ' + F.lat; ctx.fillStyle = tt('ho').accent;
       drawSpaced('HANDOUT', x0, hb, 7.2);
-      drawHO(ho, R - hw, hb + 4, hs, T, F);
+      drawHO(ho, R - hw, hb + 4, hs, tt('ho'), F);
     }
 
     // ---------- top-left: eyebrow, vertical title, reading ----------
     const sys = v('system');
     if (sys){
       const ss = 24 * sz('szSystem');
-      ctx.fillStyle = T.ink; ctx.fillRect(110, 129, 48, 1.75);
+      if (st.design === 'band' || st.design === 'bold'){
+        ctx.font = F.latW + ' ' + ss + 'px ' + F.lat;
+        ctx.fillStyle = T.ink; ctx.fillRect(100, 98, 178 - 100 + spacedWidth(sys, ss * 0.32) + 40, 64);
+      }
+      ctx.fillStyle = tt('system').ink; ctx.fillRect(110, 129, 48, 1.75);
       ctx.font = F.latW + ' ' + ss + 'px ' + F.lat; ctx.textBaseline = 'middle';
       drawSpaced(sys, 178, 130, ss * 0.32);
       ctx.textBaseline = 'alphabetic';
@@ -795,7 +1315,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     let titleRight = 114 + 92;
     const title = v('scenario');
     if (title){
-      const top = 210, avail = Math.max(200, (diffTop !== null ? diffTop - 60 : H - 170) - top);
+      const top = 210, avail = (st.design === 'band' ? bandTop() - 40 : H - 170) - top;
       let size = 92;
       ctx.font = F.jpTitle + ' ' + size + 'px ' + F.jp;
       const len = verticalLength(title, size, size * 0.16);
@@ -803,7 +1323,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
       size *= sz('szScenario');
       const gap = size * 0.16;
       ctx.font = F.jpTitle + ' ' + size + 'px ' + F.jp;
-      ctx.fillStyle = T.ink;
+      ctx.fillStyle = tt('scenario').ink;
       drawVertical(title, 114 + size / 2, top, size, gap);
       titleRight = 114 + size;
     }
@@ -811,9 +1331,15 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     if (reading){
       const rs = 26 * sz('szReading');
       ctx.save(); ctx.translate(Math.max(290, titleRight + 34 + rs / 2), 218); ctx.rotate(Math.PI / 2);
-      ctx.fillStyle = T.accent; ctx.font = F.latItalic + ' ' + rs + 'px ' + F.lat; ctx.textBaseline = 'middle';
+      ctx.fillStyle = tt('reading').accent; ctx.font = F.latItalic + ' ' + rs + 'px ' + F.lat; ctx.textBaseline = 'middle';
       drawSpaced(reading, 0, 0, rs * 0.2);
       ctx.restore();
+    }
+
+    // the band / barcode sit above the right-hand text stack, whose height is only known now: redraw once if it moved
+    if (Math.abs(stackTopNew - st.stackTop) > 0.5){
+      st.stackTop = stackTopNew;
+      if (st.design === 'band' || st.design === 'bold' || st.design === 'slim') draw();
     }
   }
 
@@ -874,7 +1400,10 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * 8 / 9); min-w
     document.fonts.ready.then(draw);
   }
   const d0 = defaults();
-  if (d0.image) loadSrc(d0.image, '保存した立ち絵', true);
+  // older saves kept one figure plus its position in num
+  const legacy = { x: d0.num.posX, y: d0.num.posY, zoom: d0.num.zoom };
+  if (d0.bgImage) setBgImage(d0.bgImage, '保存した背景画像').catch(() => {});
+  addFigs(d0.images.map(m => ({ src: m.src, pos: m.x !== undefined ? { x: m.x, y: m.y, zoom: m.zoom } : legacy })), 0);
 })();
 </script>
 </body>
