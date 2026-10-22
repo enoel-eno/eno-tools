@@ -147,15 +147,20 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
       <details class="sec" open data-sec="背景の半透明の立ち絵">
         <summary>背景の半透明の立ち絵</summary>
       <fieldset aria-label="背景の半透明の立ち絵">
-        <p class="sub">選択中の立ち絵に付く半透明のコピーです。立ち絵ごとに設定できます。</p>
+        <label class="drop" id="bustDrop" for="bustFile">
+          <strong>半透明の立ち絵を追加・ここにドロップ</strong>
+          <span>立ち絵とは別に、最大6枚まで置けます</span>
+          <input type="file" id="bustFile" accept="image/*" multiple>
+        </label>
+        <div class="diff-list" id="bustList" aria-label="追加した半透明の立ち絵"></div>
         <div class="seg" role="group" aria-label="背景の半透明の立ち絵">
           <button type="button" id="bustOn">表示する</button>
           <button type="button" id="bustOff">表示しない</button>
         </div>
-        <label for="bustAlpha">不透明度 <span id="bustAlphaVal"></span>
+        <label for="bustAlpha">選択中の不透明度 <span id="bustAlphaVal"></span>
           <input type="range" id="bustAlpha" min="3" max="60">
         </label>
-        <label for="bustZoom">大きさ <span id="bustZoomVal"></span>
+        <label for="bustZoom">選択中の大きさ <span id="bustZoomVal"></span>
           <input type="range" id="bustZoom" min="40" max="250">
         </label>
         <div class="row">
@@ -489,6 +494,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
              diffShape: d.diffShape || FACTORY.diffShape, ratio: d.ratio || FACTORY.ratio,
              design: d.design || (d.frame === false ? 'none' : FACTORY.design), bust: d.bust !== undefined ? d.bust : FACTORY.bust,
              colors: d.colors || null, tcol: d.tcol || {}, bgImage: d.bgImage || null,
+             busts: d.busts || null,
              images: d.images || (d.image ? [{ src: d.image }] : []) };
   };
 
@@ -612,7 +618,8 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
     TEXT_IDS.forEach(id => { s.text[id] = $(id).value; });
     NUM_IDS.forEach(id => { s.num[id] = num(id); });
     if (withImage && st.bgSrc) s.bgImage = st.bgSrc;
-    if (withImage) s.images = st.figs.map(f => ({ src: f.src, x: f.x, y: f.y, zoom: f.zoom, bOn: f.bOn, bx: f.bx, by: f.by, bz: f.bz, ba: f.ba }));
+    if (withImage) s.images = st.figs.map(f => ({ src: f.src, x: f.x, y: f.y, zoom: f.zoom }));
+    if (withImage) s.busts = st.busts.map(b => ({ src: b.src, x: b.x, y: b.y, zoom: b.zoom, alpha: b.alpha }));
     return s;
   }
   $('saveDefault').addEventListener('click', () => {
@@ -643,28 +650,17 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
   // ---------- image loading (multiple standing figures) ----------
   const loadImg = (src) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
   const readFile = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
-  // each figure carries its own faded copy: bOn (shown), bx/by (offset), bz (size %), ba (opacity %); only the first one starts on
-  const figDefaults = () => {
-    const d = defaults(), n = d.num;
-    return { x: n.posX, y: n.posY, zoom: n.zoom, bOn: st.figs.length === 0 ? d.bust : false, bx: n.bustX, by: n.bustY, bz: n.bustZoom, ba: n.bustAlpha };
-  };
+  const figDefaults = () => { const n = defaults().num; return { x: n.posX, y: n.posY, zoom: n.zoom }; };
 
   // the sliders always show the selected figure; draw() copies them back into it
   function syncSel(){
     const f = st.figs[st.sel];
-    if (f){
-      f.x = num('posX'); f.y = num('posY'); f.zoom = num('zoom');
-      f.bOn = st.bust; f.bx = num('bustX'); f.by = num('bustY'); f.bz = num('bustZoom'); f.ba = num('bustAlpha');
-    }
+    if (f){ f.x = num('posX'); f.y = num('posY'); f.zoom = num('zoom'); }
   }
   function selectFig(i){
     st.sel = i;
     const f = st.figs[i];
-    if (f){
-      $('posX').value = f.x; $('posY').value = f.y; $('zoom').value = f.zoom;
-      $('bustX').value = f.bx; $('bustY').value = f.by; $('bustZoom').value = f.bz; $('bustAlpha').value = f.ba;
-      setBust(f.bOn);
-    }
+    if (f){ $('posX').value = f.x; $('posY').value = f.y; $('zoom').value = f.zoom; }
     refreshLabels(); renderFigList();
   }
   function renderFigList(){
@@ -695,6 +691,58 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
     if (st.figs.length) selectFig(selectIdx !== undefined ? selectIdx : st.figs.length - 1);
     draw();
   }
+  // ---------- faded standing figures (背景の半透明の立ち絵): their own list, independent of the figures ----------
+  const MAX_BUSTS = 6;
+  st.busts = []; st.bsel = -1;
+  const bustDefaults = () => { const n = defaults().num; return { x: n.bustX, y: n.bustY, zoom: n.bustZoom, alpha: n.bustAlpha }; };
+  function syncBustSel(){
+    const b = st.busts[st.bsel];
+    if (b){ b.x = num('bustX'); b.y = num('bustY'); b.zoom = num('bustZoom'); b.alpha = num('bustAlpha'); }
+  }
+  function selectBust(i){
+    st.bsel = i;
+    const b = st.busts[i];
+    if (b){ $('bustX').value = b.x; $('bustY').value = b.y; $('bustZoom').value = b.zoom; $('bustAlpha').value = b.alpha; }
+    refreshLabels(); renderBustList();
+  }
+  function renderBustList(){
+    const list = $('bustList');
+    list.textContent = '';
+    st.busts.forEach((b, i) => {
+      const item = document.createElement('div'); item.className = 'diff-item' + (i === st.bsel ? ' sel' : '');
+      const im = document.createElement('img'); im.src = b.src; im.alt = '半透明の立ち絵 ' + (i + 1) + (i === st.bsel ? '（選択中）' : '');
+      im.addEventListener('click', () => { selectBust(i); draw(); });
+      const del = document.createElement('button'); del.type = 'button'; del.textContent = '×';
+      del.setAttribute('aria-label', '半透明の立ち絵 ' + (i + 1) + ' を削除');
+      del.addEventListener('click', () => {
+        st.busts.splice(i, 1);
+        selectBust(Math.min(i < st.bsel ? st.bsel - 1 : st.bsel, st.busts.length - 1));
+        draw();
+      });
+      item.append(im, del); list.appendChild(item);
+    });
+  }
+  async function addBusts(items, selectIdx){
+    for (const it of items){
+      if (st.busts.length >= MAX_BUSTS){ $('status').textContent = '半透明の立ち絵は' + MAX_BUSTS + '枚までです。どれかを削除してから追加してください。'; break; }
+      try { st.busts.push(Object.assign({ img: await loadImg(it.src), src: it.src }, bustDefaults(), it.pos || {})); }
+      catch (e) { $('status').textContent = '画像を読み込めませんでした。PNG・JPG・WebPを選んでください。'; }
+    }
+    if (st.busts.length) selectBust(selectIdx !== undefined ? selectIdx : st.busts.length - 1);
+    draw();
+  }
+  async function loadBustFiles(files){
+    const imgs = Array.from(files || []).filter(f => f.type.startsWith('image/'));
+    if (!imgs.length){ $('status').textContent = '画像ファイルを選んでください。'; return; }
+    $('status').textContent = '';
+    addBusts((await Promise.all(imgs.map(readFile))).map(src => ({ src })));
+  }
+  $('bustFile').addEventListener('change', e => { loadBustFiles(e.target.files); e.target.value = ''; });
+  const bustDrop = $('bustDrop');
+  ['dragenter','dragover'].forEach(ev => bustDrop.addEventListener(ev, e => { e.preventDefault(); bustDrop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => bustDrop.addEventListener(ev, e => { e.preventDefault(); bustDrop.classList.remove('over'); }));
+  bustDrop.addEventListener('drop', e => loadBustFiles(e.dataTransfer.files));
+
   async function loadFiles(files){
     const imgs = Array.from(files || []).filter(f => f.type.startsWith('image/'));
     if (!imgs.length){ $('status').textContent = '画像ファイルを選んでください。'; return; }
@@ -932,17 +980,17 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
   }
 
   // faded copy of the whole art, placed large so the default view is roughly a bust-up
-  function bustRect(f){
-    const ratio = f.img.naturalWidth / f.img.naturalHeight;
-    const dw = 1500 * (f.bz / 100) * (H / 1800);
-    return { x: W * 0.7 - dw / 2 + f.bx, y: -40 - f.by, w: dw, h: dw / ratio };
+  function bustRect(b){
+    const ratio = b.img.naturalWidth / b.img.naturalHeight;
+    const dw = 1500 * (b.zoom / 100) * (H / 1800);
+    return { x: W * 0.7 - dw / 2 + b.x, y: -40 - b.y, w: dw, h: dw / ratio };
   }
   function drawBust(){
-    st.figs.forEach(f => {
-      if (!f.bOn) return;
-      const b = bustRect(f);
-      ctx.save(); ctx.globalAlpha = f.ba / 100;
-      ctx.drawImage(f.img, b.x, b.y, b.w, b.h);
+    if (!st.bust) return;
+    st.busts.forEach(b => {
+      const r = bustRect(b);
+      ctx.save(); ctx.globalAlpha = b.alpha / 100;
+      ctx.drawImage(b.img, r.x, r.y, r.w, r.h);
       ctx.restore();
     });
   }
@@ -1119,7 +1167,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
   let layer = 'main', dragging = false;
   const LAYERS = {
     main: { x:'posX',    y:'posY',    zoom:'zoom',     ok: () => st.figs.length > 0,   unit: () => 1 },
-    bust: { x:'bustX',   y:'bustY',   zoom:'bustZoom', ok: () => st.sel >= 0 && st.bust, unit: () => 1 },
+    bust: { x:'bustX',   y:'bustY',   zoom:'bustZoom', ok: () => st.bsel >= 0 && st.bust, unit: () => 1 },
     diff: { x:'diffX',   y:'diffY',   zoom:'diffZoom', ok: () => st.diffOn && diffCount() > 0,
             unit: () => diffLayoutNow().size / 150 }
   };
@@ -1157,9 +1205,8 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
     for (let i = st.figs.length - 1; i >= 0; i--){
       if (opaqueAt(st.figs[i].img, imageRect(st.figs[i]), px, py)){ layer = 'main'; if (i !== st.sel) selectFig(i); return; }
     }
-    for (let i = st.figs.length - 1; i >= 0; i--){
-      const f = st.figs[i];
-      if (f.bOn && opaqueAt(f.img, bustRect(f), px, py)){ layer = 'bust'; if (i !== st.sel) selectFig(i); return; }
+    if (st.bust) for (let i = st.busts.length - 1; i >= 0; i--){
+      if (opaqueAt(st.busts[i].img, bustRect(st.busts[i]), px, py)){ layer = 'bust'; if (i !== st.bsel) selectBust(i); return; }
     }
   }
   cv.addEventListener('pointerdown', e => {
@@ -1194,7 +1241,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
 
   let exporting = false;
   function draw(){
-    syncSel(); syncDiffSel();
+    syncSel(); syncBustSel(); syncDiffSel();
     const T = Object.assign({}, st.theme, { bg: st.bg, ink: st.ink, accent: mixHex(st.ink, st.bg, 0.31) }), F = FONTS[st.font];
     // per-text colour override (also replaces the quieter accent tone of that text)
     const Tinv = Object.assign({}, T, { ink: T.bg, accent: mixHex(T.bg, T.ink, 0.31) });
@@ -1218,8 +1265,8 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
     drawBust();
     st.figs.forEach(f => { const r = imageRect(f); ctx.drawImage(f.img, r.x, r.y, r.w, r.h); });
     if (!st.figs.length && !exporting) drawPlaceholder(T, F);
-    if (dragging && !exporting && st.figs.length && layer !== 'diff'){
-      const o = layer === 'main' ? imageRect(st.figs[st.sel]) : bustRect(st.figs[st.sel]);
+    if (dragging && !exporting && layer !== 'diff' && (layer === 'main' ? st.sel >= 0 : st.bsel >= 0)){
+      const o = layer === 'main' ? imageRect(st.figs[st.sel]) : bustRect(st.busts[st.bsel]);
       ctx.save(); ctx.strokeStyle = '#2f7cf6'; ctx.lineWidth = 4; ctx.setLineDash([18, 12]);
       ctx.strokeRect(o.x, o.y, o.w, o.h); ctx.restore();
     }
@@ -1416,10 +1463,18 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
     document.fonts.ready.then(draw);
   }
   const d0 = defaults();
-  // older saves kept one figure and its faded copy in num/bust: those come through figDefaults() for the first figure
   const keep = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+  // older saves tied the faded copy to the figure(s): turn those into faded figures of their own
+  let bl = d0.busts;
+  if (!bl){
+    bl = [];
+    d0.images.forEach((m, i) => {
+      if (m.bOn !== undefined ? m.bOn : (i === 0 && d0.bust)) bl.push({ src: m.src, x: m.bx !== undefined ? m.bx : d0.num.bustX, y: m.by !== undefined ? m.by : d0.num.bustY, zoom: m.bz !== undefined ? m.bz : d0.num.bustZoom, alpha: m.ba !== undefined ? m.ba : d0.num.bustAlpha });
+    });
+  }
+  addBusts(bl.map(m => ({ src: m.src, pos: keep({ x: m.x, y: m.y, zoom: m.zoom, alpha: m.alpha }) })), 0);
   if (d0.bgImage) setBgImage(d0.bgImage, '保存した背景画像').catch(() => {});
-  addFigs(d0.images.map(m => ({ src: m.src, pos: keep({ x: m.x, y: m.y, zoom: m.zoom, bOn: m.bOn, bx: m.bx, by: m.by, bz: m.bz, ba: m.ba }) })), 0);
+  addFigs(d0.images.map(m => ({ src: m.src, pos: keep({ x: m.x, y: m.y, zoom: m.zoom }) })), 0);
 })();
 </script>
 </body>
