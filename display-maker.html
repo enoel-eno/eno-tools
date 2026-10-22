@@ -153,10 +153,6 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
           <input type="file" id="bustFile" accept="image/*" multiple>
         </label>
         <div class="diff-list" id="bustList" aria-label="追加した半透明の立ち絵"></div>
-        <div class="seg" role="group" aria-label="背景の半透明の立ち絵">
-          <button type="button" id="bustOn">表示する</button>
-          <button type="button" id="bustOff">表示しない</button>
-        </div>
         <label for="bustAlpha">選択中の不透明度 <span id="bustAlphaVal"></span>
           <input type="range" id="bustAlpha" min="3" max="60">
         </label>
@@ -577,7 +573,6 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
   function setDesign(v){ st.design = v; $('design').value = v; }
   function setDiffShape(v){ st.diffShape = v; $('diffShape').value = v; }
   $('diffShape').addEventListener('change', e => { setDiffShape(e.target.value); draw(); });
-  function setBust(on){ st.bust = on; setPressed(['bustOn','bustOff'], on ? 'bustOn' : 'bustOff'); }
 
   $('haloOn').addEventListener('click', () => { setHalo(true); draw(); });
   $('haloOff').addEventListener('click', () => { setHalo(false); draw(); });
@@ -586,11 +581,8 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
   $('haloColor').addEventListener('input', e => { st.haloCol = e.target.value; drawSoon(); });
   $('design').addEventListener('change', e => {
     setDesign(e.target.value);
-    if (e.target.value === 'ring') setBust(true);   // the ring is meant to sit behind the faded bust-up
     draw();
   });
-  $('bustOn').addEventListener('click', () => { setBust(true); draw(); });
-  $('bustOff').addEventListener('click', () => { setBust(false); draw(); });
 
   TEXT_IDS.forEach(id => $(id).addEventListener('input', draw));
   NUM_IDS.forEach(id => $(id).addEventListener('input', () => { refreshLabels(); draw(); }));
@@ -608,7 +600,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
     TEXT_IDS.forEach(id => { $(id).value = d.text[id]; });
     NUM_IDS.forEach(id => { $(id).value = d.num[id]; });
     st.tcol = Object.assign({}, d.tcol); st.haloCol = d.haloCol;
-    setTheme(d.theme); if (d.colors) setColors(d.colors.bg, d.colors.ink); setFont(); setHalo(d.halo); setHaloBlur(d.haloBlur); setRatio(d.ratio); setDesign(d.design); setDiffShape(d.diffShape); setBust(d.bust);
+    setTheme(d.theme); if (d.colors) setColors(d.colors.bg, d.colors.ink); setFont(); setHalo(d.halo); setHaloBlur(d.haloBlur); setRatio(d.ratio); setDesign(d.design); setDiffShape(d.diffShape);
     refreshLabels();
   }
 
