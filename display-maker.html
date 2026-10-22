@@ -147,6 +147,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
       <details class="sec" open data-sec="背景の半透明の立ち絵">
         <summary>背景の半透明の立ち絵</summary>
       <fieldset aria-label="背景の半透明の立ち絵">
+        <p class="sub">選択中の立ち絵に付く半透明のコピーです。立ち絵ごとに設定できます。</p>
         <div class="seg" role="group" aria-label="背景の半透明の立ち絵">
           <button type="button" id="bustOn">表示する</button>
           <button type="button" id="bustOff">表示しない</button>
@@ -494,7 +495,6 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
   // figs: the standing figures (立ち絵), drawn in order; sel is the one the sliders and layer buttons act on
   const st = { theme: THEMES[0], font:'mincho', design:'double', diffShape:'diamond', ratio:'now', bust:true, figs:[], sel:-1, tcol:{}, stackTop:0 };
   const MAX_FIGS = 6;
-  const bustImg = () => st.figs.length ? st.figs[0].img : null;
   const num = (id) => +$(id).value;
   const sz = (id) => num(id) / 100;
 
@@ -612,7 +612,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
     TEXT_IDS.forEach(id => { s.text[id] = $(id).value; });
     NUM_IDS.forEach(id => { s.num[id] = num(id); });
     if (withImage && st.bgSrc) s.bgImage = st.bgSrc;
-    if (withImage) s.images = st.figs.map(f => ({ src: f.src, x: f.x, y: f.y, zoom: f.zoom }));
+    if (withImage) s.images = st.figs.map(f => ({ src: f.src, x: f.x, y: f.y, zoom: f.zoom, bOn: f.bOn, bx: f.bx, by: f.by, bz: f.bz, ba: f.ba }));
     return s;
   }
   $('saveDefault').addEventListener('click', () => {
@@ -643,17 +643,28 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
   // ---------- image loading (multiple standing figures) ----------
   const loadImg = (src) => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
   const readFile = (f) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
-  const figDefaults = () => { const n = defaults().num; return { x: n.posX, y: n.posY, zoom: n.zoom }; };
+  // each figure carries its own faded copy: bOn (shown), bx/by (offset), bz (size %), ba (opacity %); only the first one starts on
+  const figDefaults = () => {
+    const d = defaults(), n = d.num;
+    return { x: n.posX, y: n.posY, zoom: n.zoom, bOn: st.figs.length === 0 ? d.bust : false, bx: n.bustX, by: n.bustY, bz: n.bustZoom, ba: n.bustAlpha };
+  };
 
   // the sliders always show the selected figure; draw() copies them back into it
   function syncSel(){
     const f = st.figs[st.sel];
-    if (f){ f.x = num('posX'); f.y = num('posY'); f.zoom = num('zoom'); }
+    if (f){
+      f.x = num('posX'); f.y = num('posY'); f.zoom = num('zoom');
+      f.bOn = st.bust; f.bx = num('bustX'); f.by = num('bustY'); f.bz = num('bustZoom'); f.ba = num('bustAlpha');
+    }
   }
   function selectFig(i){
     st.sel = i;
     const f = st.figs[i];
-    if (f){ $('posX').value = f.x; $('posY').value = f.y; $('zoom').value = f.zoom; }
+    if (f){
+      $('posX').value = f.x; $('posY').value = f.y; $('zoom').value = f.zoom;
+      $('bustX').value = f.bx; $('bustY').value = f.by; $('bustZoom').value = f.bz; $('bustAlpha').value = f.ba;
+      setBust(f.bOn);
+    }
     refreshLabels(); renderFigList();
   }
   function renderFigList(){
@@ -678,7 +689,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
   async function addFigs(items, selectIdx){
     for (const it of items){
       if (st.figs.length >= MAX_FIGS){ $('status').textContent = '立ち絵は' + MAX_FIGS + '枚までです。どれかを削除してから追加してください。'; break; }
-      try { st.figs.push(Object.assign({ img: await loadImg(it.src), src: it.src }, it.pos || figDefaults())); }
+      try { st.figs.push(Object.assign({ img: await loadImg(it.src), src: it.src }, figDefaults(), it.pos || {})); }
       catch (e) { $('status').textContent = '画像を読み込めませんでした。PNG・JPG・WebPを選んでください。'; }
     }
     if (st.figs.length) selectFig(selectIdx !== undefined ? selectIdx : st.figs.length - 1);
@@ -921,17 +932,19 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
   }
 
   // faded copy of the whole art, placed large so the default view is roughly a bust-up
-  function bustRect(){
-    const ratio = bustImg().naturalWidth / bustImg().naturalHeight;
-    const dw = 1500 * sz('bustZoom') * (H / 1800);
-    return { x: W * 0.7 - dw / 2 + num('bustX'), y: -40 - num('bustY'), w: dw, h: dw / ratio };
+  function bustRect(f){
+    const ratio = f.img.naturalWidth / f.img.naturalHeight;
+    const dw = 1500 * (f.bz / 100) * (H / 1800);
+    return { x: W * 0.7 - dw / 2 + f.bx, y: -40 - f.by, w: dw, h: dw / ratio };
   }
   function drawBust(){
-    const im = bustImg(); if (!im || !st.bust) return;
-    const b = bustRect();
-    ctx.save(); ctx.globalAlpha = num('bustAlpha') / 100;
-    ctx.drawImage(im, b.x, b.y, b.w, b.h);
-    ctx.restore();
+    st.figs.forEach(f => {
+      if (!f.bOn) return;
+      const b = bustRect(f);
+      ctx.save(); ctx.globalAlpha = f.ba / 100;
+      ctx.drawImage(f.img, b.x, b.y, b.w, b.h);
+      ctx.restore();
+    });
   }
 
   // ---------- designs (frame / decoration sets; text positions never change) ----------
@@ -1106,7 +1119,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
   let layer = 'main', dragging = false;
   const LAYERS = {
     main: { x:'posX',    y:'posY',    zoom:'zoom',     ok: () => st.figs.length > 0,   unit: () => 1 },
-    bust: { x:'bustX',   y:'bustY',   zoom:'bustZoom', ok: () => st.figs.length > 0 && st.bust, unit: () => 1 },
+    bust: { x:'bustX',   y:'bustY',   zoom:'bustZoom', ok: () => st.sel >= 0 && st.bust, unit: () => 1 },
     diff: { x:'diffX',   y:'diffY',   zoom:'diffZoom', ok: () => st.diffOn && diffCount() > 0,
             unit: () => diffLayoutNow().size / 150 }
   };
@@ -1144,7 +1157,10 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
     for (let i = st.figs.length - 1; i >= 0; i--){
       if (opaqueAt(st.figs[i].img, imageRect(st.figs[i]), px, py)){ layer = 'main'; if (i !== st.sel) selectFig(i); return; }
     }
-    if (st.bust && st.figs.length && opaqueAt(bustImg(), bustRect(), px, py)) layer = 'bust';
+    for (let i = st.figs.length - 1; i >= 0; i--){
+      const f = st.figs[i];
+      if (f.bOn && opaqueAt(f.img, bustRect(f), px, py)){ layer = 'bust'; if (i !== st.sel) selectFig(i); return; }
+    }
   }
   cv.addEventListener('pointerdown', e => {
     if (!ptrs.size) pickLayer(e);
@@ -1203,7 +1219,7 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
     st.figs.forEach(f => { const r = imageRect(f); ctx.drawImage(f.img, r.x, r.y, r.w, r.h); });
     if (!st.figs.length && !exporting) drawPlaceholder(T, F);
     if (dragging && !exporting && st.figs.length && layer !== 'diff'){
-      const o = layer === 'main' ? imageRect(st.figs[st.sel]) : bustRect();
+      const o = layer === 'main' ? imageRect(st.figs[st.sel]) : bustRect(st.figs[st.sel]);
       ctx.save(); ctx.strokeStyle = '#2f7cf6'; ctx.lineWidth = 4; ctx.setLineDash([18, 12]);
       ctx.strokeRect(o.x, o.y, o.w, o.h); ctx.restore();
     }
@@ -1400,10 +1416,10 @@ canvas{display:block; width:100%; max-width:calc((100vh - 170px) * var(--cv-r, .
     document.fonts.ready.then(draw);
   }
   const d0 = defaults();
-  // older saves kept one figure plus its position in num
-  const legacy = { x: d0.num.posX, y: d0.num.posY, zoom: d0.num.zoom };
+  // older saves kept one figure and its faded copy in num/bust: those come through figDefaults() for the first figure
+  const keep = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
   if (d0.bgImage) setBgImage(d0.bgImage, '保存した背景画像').catch(() => {});
-  addFigs(d0.images.map(m => ({ src: m.src, pos: m.x !== undefined ? { x: m.x, y: m.y, zoom: m.zoom } : legacy })), 0);
+  addFigs(d0.images.map(m => ({ src: m.src, pos: keep({ x: m.x, y: m.y, zoom: m.zoom, bOn: m.bOn, bx: m.bx, by: m.by, bz: m.bz, ba: m.ba }) })), 0);
 })();
 </script>
 </body>
