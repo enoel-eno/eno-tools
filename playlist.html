@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="YouTubeの動画リンクをリストにまとめて、リンクを知っている人にだけ共有できます。"><meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>動画リスト整理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9; --surface:#ffffff; --ink:#1f2328; --muted:#6b7178; --line:#dde1e5; --accent:#2b2f36; --accent-ink:#ffffff; --soft:#f0f2f4; --crit:#9a4a44;
+  --f-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15171a; --surface:#1e2125; --ink:#e6e8ea; --muted:#9aa0a6; --line:#30343a; --accent:#d5d9de; --accent-ink:#15171a; --soft:#272b30; --crit:#d9958d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15171a; --surface:#1e2125; --ink:#e6e8ea; --muted:#9aa0a6; --line:#30343a; --accent:#d5d9de; --accent-ink:#15171a; --soft:#272b30; --crit:#d9958d; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7}
+.wrap{max-width:820px;margin:0 auto;padding:40px max(16px,env(safe-area-inset-right,0px)) calc(64px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+header{margin-bottom:28px}
+.eyebrow{display:flex;align-items:center;gap:12px;font-size:12px;letter-spacing:.24em;color:var(--muted);margin:0 0 10px}
+.eyebrow::before{content:"";width:36px;height:1.5px;background:var(--ink)}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(26px,5.5vw,40px);letter-spacing:.06em;margin:0;line-height:1.3;overflow-wrap:anywhere}
+h1 svg{width:.85em;height:.85em;vertical-align:-.08em;margin-right:.3em}
+header p{margin:10px 0 0;color:var(--muted)}
+.ico{width:1.1em;height:1.1em;vertical-align:-.17em;flex:none}
+a{color:inherit}
+.back{display:inline-block;margin-bottom:14px;font-size:13px;color:var(--muted);text-decoration:none;background:none;border:0;padding:0;cursor:pointer;font-family:inherit}
+.back:hover{color:var(--ink)}
+button,.btn{font-family:var(--f-body);font-size:13px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:5px;padding:5px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+button:hover,.btn:hover{border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;border-radius:6px}
+button.danger:hover{border-color:var(--crit);color:var(--crit)}
+button.icon{padding:5px 7px}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input,textarea{font-family:var(--f-body);font-size:14px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);padding:8px 10px;width:100%}
+textarea{resize:vertical;min-height:84px;line-height:1.55}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.stack{display:grid;gap:14px}
+.muted{color:var(--muted);font-size:13px}
+.empty{border:1px dashed var(--line);border-radius:10px;padding:28px 20px;color:var(--muted);text-align:center}
+
+/* 一覧 */
+.newlist{display:flex;gap:8px;margin-bottom:18px}
+.newlist input{flex:1;min-width:0}
+a.pl,button.pl,div.pl{display:grid;grid-template-columns:96px minmax(0,1fr) auto;align-items:center;gap:6px 16px;padding:12px;text-align:left;width:100%;border-radius:12px;font-size:15px;font-weight:400}
+.pl .th{width:96px;aspect-ratio:16/9;border-radius:6px;background:var(--soft);overflow:hidden;display:grid;place-items:center;color:var(--muted)}
+.pl .th img{width:100%;height:100%;object-fit:cover;display:block}
+.pl .nm{font-family:var(--f-display);font-weight:800;font-size:19px;letter-spacing:.04em;margin:0;overflow-wrap:anywhere}
+.pl .go{color:var(--muted);transition:transform .15s,color .15s}
+div.pl[data-act]{cursor:pointer}
+div.pl[data-act]:hover{border-color:var(--accent)}
+.pl:hover .go{color:var(--accent);transform:translateX(3px)}
+
+/* 詳細 */
+.player{margin-bottom:18px;display:none}
+.player.on{display:block}
+.player .frame{aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden}
+.player iframe{width:100%;height:100%;border:0;display:block}
+.player .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.player .now{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adder{padding:14px;margin-bottom:18px;display:grid;gap:10px}
+.items{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.it{display:grid;grid-template-columns:auto 128px minmax(0,1fr) auto;gap:8px 12px;align-items:center;padding:10px;border-radius:10px}
+.it.cur{border-color:var(--accent)}
+.it .no{font-family:var(--f-mono);font-size:12px;color:var(--muted);width:1.8em;text-align:right}
+.it .th{position:relative;width:128px;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:var(--soft);padding:0;border:0;display:block}
+.it .th img{width:100%;height:100%;object-fit:cover;display:block}
+.it .th .play{position:absolute;inset:0;display:grid;place-items:center;color:#fff;background:rgba(0,0,0,.28);opacity:0;transition:opacity .15s}
+.it .th:hover .play,.it.cur .th .play{opacity:1}
+.it .tt{font-weight:700;overflow-wrap:anywhere;line-height:1.45}
+.it .nt{font-size:13px;color:var(--muted);margin-top:2px;white-space:pre-wrap;overflow-wrap:anywhere}
+.it .ops{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.it .ed{grid-column:2 / -1;display:grid;gap:8px}
+.share{padding:14px;margin-top:22px;display:grid;gap:8px}
+.share h2{font-family:var(--f-display);font-weight:800;font-size:18px;letter-spacing:.04em;margin:0}
+.share input{font-family:var(--f-mono);font-size:12px}
+.foot{margin-top:36px;font-size:12px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:7px 16px;border-radius:6px;font-size:13px;z-index:9;max-width:90vw}
+@media (max-width:560px){
+  .wrap{padding-top:28px}
+  a.pl,button.pl,div.pl{grid-template-columns:72px minmax(0,1fr);padding:10px;gap:4px 12px}
+  .pl .th{width:72px}
+  .pl .go{display:none}
+  .pl .row{align-self:start}
+  .it{grid-template-columns:104px minmax(0,1fr);}
+  .it .no{display:none}
+  .it .th{width:104px}
+  .it .ops{grid-column:1 / -1;justify-content:flex-start}
+  .it .ed{grid-column:1 / -1}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="app"></div>
+  <p class="foot">リンクを知っている人だけが見られる共有リンクです（検索には載りません）。リストの中身はリンク自体に入っていて、サーバーには保存されません。</p>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const I = {
+  list:'<path d="M3 6h13"/><path d="M3 12h13"/><path d="M3 18h9"/><path d="m18 14 4 3-4 3z"/>',
+  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+  up:'<path d="m18 15-6-6-6 6"/>', down:'<path d="m6 9 6 6 6-6"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+  next:'<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/>',
+  save:'<path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  down2:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  up2:'<path d="M12 15V3"/><path d="m17 8-5-5-5 5"/><path d="M5 21h14"/>',
+  film:'<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M17 3v18"/><path d="M3 12h18"/>'
+};
+const ic = (n, cls='ico') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
+
+/* ---------- 保存 ---------- */
+const LS = 'ytl.v1';
+function load(){ try{ const d = JSON.parse(localStorage.getItem(LS)); if(d && Array.isArray(d.lists)) return d; }catch(e){} return {lists:[]}; }
+let db = load();
+function save(){ try{ localStorage.setItem(LS, JSON.stringify(db)); }catch(e){ toast('ブラウザに保存できませんでした'); } }
+const uid = () => Math.random().toString(36).slice(2,10);
+
+/* ---------- 共有リンク（deflate + base64url） ---------- */
+const b64u = u8 => { let s=''; for(let i=0;i<u8.length;i+=0x8000) s += String.fromCharCode.apply(null, u8.subarray(i,i+0x8000)); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+const unb64u = t => { const s = atob(t.replace(/-/g,'+').replace(/_/g,'/')); const u = new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; };
+async function pack(obj){
+  const st = new Blob([JSON.stringify(obj)]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return b64u(new Uint8Array(await new Response(st).arrayBuffer()));
+}
+async function unpack(t){
+  const st = new Blob([unb64u(t)]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return JSON.parse(await new Response(st).text());
+}
+const toShare = l => ({n:l.name, v:l.items.map(x => [x.v, x.t, x.n || ''])});
+const fromShare = o => ({id:uid(), name:String(o.n||'共有リスト'), items:(o.v||[]).filter(a => /^[\w-]{11}$/.test(a[0])).map(a => ({v:a[0], t:String(a[1]||''), n:String(a[2]||'')}))});
+
+/* ---------- YouTube ---------- */
+const YT_RE = /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:[^\s#]*&)?v=|shorts\/|embed\/|live\/|v\/))([\w-]{11})/;
+const parseIds = text => { const out=[]; for(const m of text.split(/\s+/)){ const r = YT_RE.exec(m); if(r && !out.includes(r[1])) out.push(r[1]); } return out; };
+async function fetchTitle(id){
+  const u = encodeURIComponent('https://www.youtube.com/watch?v=' + id);
+  for(const api of ['https://www.youtube.com/oembed?format=json&url=', 'https://noembed.com/json?url=']){
+    try{
+      const j = await (await fetch(api + u)).json();
+      if(j && j.title) return j.title;
+    }catch(e){}
+  }
+  return '';
+}
+const thumb = id => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+
+let ytReady = null;
+function loadYT(){
+  if(ytReady) return ytReady;
+  ytReady = new Promise(res => {
+    if(window.YT && YT.Player) return res();
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { if(prev) prev(); res(); };
+    const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s);
+  });
+  return ytReady;
+}
+
+/* ---------- 状態 ---------- */
+let view = {kind:'home'};        // home | list(id) | shared(list)
+let renaming = null;
+let cur = -1, player = null, editing = null, adding = false;
+
+function toast(msg){
+  document.querySelectorAll('.toast').forEach(e => e.remove());
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2400);
+}
+
+function currentItems(){ return view.kind === 'backup' ? [] : view.kind === 'list' ? (db.lists.find(l => l.id === view.id)?.items || []) : (view.list?.items || []); }
+
+/* ---------- 描画 ---------- */
+function header(eyebrow, titleHtml, desc){
+  return `<header><p class="eyebrow">${eyebrow}</p><h1>${titleHtml}</h1>${desc ? `<p>${desc}</p>` : ''}</header>`;
+}
+
+function renderHome(){
+  const cards = db.lists.map(l => {
+    const first = l.items[0];
+    const th = `<span class="th">${first ? `<img src="${thumb(first.v)}" alt="" loading="lazy">` : ic('film')}</span>`;
+    if(renaming === l.id) return `<div class="card pl">${th}<div class="stack" style="gap:8px"><input id="renT" value="${esc(l.name)}" maxlength="60" aria-label="リスト名"><div class="row"><button type="button" class="primary" data-act="rensave" data-id="${l.id}">保存</button><button type="button" data-act="rencancel">キャンセル</button></div></div><span></span></div>`;
+    return `<div class="card pl" data-act="open" data-id="${l.id}">${th}
+      <span><p class="nm">${esc(l.name)}</p><span class="muted">${l.items.length} 本</span></span>
+      <span class="row" style="flex-wrap:nowrap"><button type="button" class="icon" data-act="rename" data-id="${l.id}" title="名前を変更" aria-label="名前を変更">${ic('edit')}</button><button type="button" class="icon go" data-act="open" data-id="${l.id}" aria-label="開く">${ic('next')}</button></span></div>`;
+  }).join('');
+  return `<a href="./" class="back">← ツール一覧</a>` + header('PLAYLIST', ic('list','') + '動画リスト整理', 'YouTubeのリンクをまとめて、リンクを知っている友達にだけ共有できます。') +
+    `<form class="newlist" data-act="create"><input id="newName" placeholder="新しいリストの名前" maxlength="60" aria-label="新しいリストの名前"><button class="primary" type="submit">${ic('plus')}作成</button></form>` +
+    (cards ? `<div class="stack">${cards}</div>` : `<div class="empty">まだリストがありません。名前をつけて作成してください。</div>`) +
+    `<section class="card share" style="margin-top:28px"><h2>バックアップ</h2>
+      <p class="muted" style="margin:0">リストはこのブラウザの中にだけ保存されています。別の端末に移したり、消えたときに備えて控えを残せます。</p>
+      <div class="row">
+        <button type="button" data-act="export" ${db.lists.length?'':'disabled'}>${ic('down2')}ファイルに書き出す</button>
+        <label class="btn">${ic('up2')}ファイルから読み込む<input type="file" id="impFile" accept=".json,application/json" hidden></label>
+        <button type="button" data-act="backuplink" ${db.lists.length?'':'disabled'}>${ic('link')}復元リンクを作ってコピー</button>
+      </div>
+      <p class="muted" id="backupInfo" style="margin:0">復元リンクは自分用です。ブックマークやメモに残しておき、開くとすべてのリストを取り戻せます。人に送ると全リストが見えるので注意してください。</p>
+    </section>`;
+}
+
+function itemHtml(it, i, ro){
+  const isEd = !ro && editing === i;
+  return `<li class="card it ${cur===i?'cur':''}" data-i="${i}">
+    <span class="no">${i+1}</span>
+    <button type="button" class="th" data-act="play" data-i="${i}" aria-label="再生"><img src="${thumb(it.v)}" alt="" loading="lazy"><span class="play">${ic('play','ico')}</span></button>
+    <div><div class="tt">${esc(it.t || '（タイトルなし）')}</div>${it.n ? `<div class="nt">${esc(it.n)}</div>` : ''}</div>
+    <div class="ops">
+      <a class="btn icon" href="https://www.youtube.com/watch?v=${it.v}" target="_blank" rel="noopener noreferrer" title="YouTubeで開く" aria-label="YouTubeで開く">${ic('ext')}</a>
+      ${ro ? '' : `<button type="button" class="icon" data-act="up" data-i="${i}" title="上へ" aria-label="上へ" ${i===0?'disabled':''}>${ic('up')}</button>
+      <button type="button" class="icon" data-act="down" data-i="${i}" title="下へ" aria-label="下へ">${ic('down')}</button>
+      <button type="button" class="icon" data-act="edit" data-i="${i}" title="編集" aria-label="編集">${ic('edit')}</button>
+      <button type="button" class="icon danger" data-act="del" data-i="${i}" title="削除" aria-label="削除">${ic('trash')}</button>`}
+    </div>
+    ${isEd ? `<div class="ed"><input id="edT" value="${esc(it.t)}" placeholder="タイトル" aria-label="タイトル"><textarea id="edN" placeholder="メモ（任意）" aria-label="メモ">${esc(it.n)}</textarea><div class="row"><button type="button" class="primary" data-act="edsave" data-i="${i}">保存</button><button type="button" data-act="edcancel">キャンセル</button></div></div>` : ''}
+  </li>`;
+}
+
+function renderList(){
+  const l = db.lists.find(x => x.id === view.id);
+  if(!l){ view = {kind:'home'}; return renderHome(); }
+  const items = l.items.map((it,i) => itemHtml(it,i,false)).join('');
+  return `<button type="button" class="back" data-act="home">← リスト一覧</button>
+    ${header('PLAYLIST', esc(l.name), `${l.items.length} 本の動画`)}
+    <div class="player" id="playerBox"></div>
+    <div class="card adder">
+      <label class="muted" for="urls">YouTubeのリンクを貼る（複数行まとめてOK）</label>
+      <textarea id="urls" placeholder="https://www.youtube.com/watch?v=...&#10;https://youtu.be/..."></textarea>
+      <div class="row"><button type="button" class="primary" data-act="add" ${adding?'disabled':''}>${ic('plus')}${adding?'追加中…':'追加'}</button></div>
+    </div>
+    ${items ? `<ul class="items">${items}</ul>` : `<div class="empty">リンクを貼って動画を追加しましょう。</div>`}
+    <section class="card share"><h2>友達に共有</h2>
+      <p class="muted" style="margin:0">リストの中身を入れた閲覧専用リンクを作ります。リンクを知っている人だけが見られます。更新したらリンクを作り直して送ってください。</p>
+      <div class="row"><button type="button" class="primary" data-act="share" ${l.items.length?'':'disabled'}>${ic('link')}共有リンクを作ってコピー</button></div>
+      <input id="shareUrl" readonly hidden aria-label="共有リンク">
+      <p class="muted" id="shareInfo" style="margin:0"></p>
+    </section>
+    <div class="row" style="margin-top:22px"><button type="button" class="danger" data-act="dellist">${ic('trash')}このリストを削除</button></div>`;
+}
+
+function renderShared(){
+  const l = view.list;
+  if(!l) return `<button type="button" class="back" data-act="home">← 自分のリスト</button>${header('PLAYLIST','共有リンクを開けませんでした','リンクが途中で切れているか、壊れている可能性があります。送ってくれた人にもう一度リンクを確認してください。')}`;
+  const items = l.items.map((it,i) => itemHtml(it,i,true)).join('');
+  return `<button type="button" class="back" data-act="home">← 自分のリスト</button>
+    ${header('SHARED PLAYLIST', ic('list','') + esc(l.name), `${l.items.length} 本の動画（閲覧専用）`)}
+    <div class="row" style="margin-bottom:18px"><button type="button" data-act="import">${ic('save')}自分のリストに保存</button></div>
+    <div class="player" id="playerBox"></div>
+    ${items ? `<ul class="items">${items}</ul>` : `<div class="empty">動画がありません。</div>`}`;
+}
+
+function renderBackup(){
+  const ls = view.lists;
+  if(!ls) return `<button type="button" class="back" data-act="home">← 自分のリスト</button>${header('BACKUP','復元リンクを開けませんでした','リンクが途中で切れているか、壊れている可能性があります。')}`;
+  const rows = ls.map(l => `<div class="card pl" style="grid-template-columns:96px minmax(0,1fr)"><span class="th">${l.items[0] ? `<img src="${thumb(l.items[0].v)}" alt="" loading="lazy">` : ic('film')}</span><span><p class="nm">${esc(l.name)}</p><span class="muted">${l.items.length} 本</span></span></div>`).join('');
+  return `<button type="button" class="back" data-act="home">← 自分のリスト</button>
+    ${header('BACKUP', ic('save','') + 'バックアップの復元', `${ls.length} 件のリストが入っています。いまのリストはそのまま残り、これらが追加されます。`)}
+    <div class="row" style="margin-bottom:18px"><button type="button" class="primary" data-act="restore">${ic('save')}自分のリストに追加する</button></div>
+    <div class="stack">${rows}</div>`;
+}
+
+function render(keepFocus){
+  const app = $('#app');
+  const f = keepFocus ? document.activeElement?.id : null;
+  const pv = detachPlayer();
+  app.innerHTML = view.kind === 'home' ? renderHome() : view.kind === 'list' ? renderList() : view.kind === 'backup' ? renderBackup() : renderShared();
+  attachPlayer(pv);
+  document.title = (view.kind === 'backup') ? '復元 | 動画リスト整理' : (view.kind === 'list' ? db.lists.find(l=>l.id===view.id)?.name : view.kind === 'shared' ? view.list?.name : '') ? (view.kind === 'list' ? db.lists.find(l=>l.id===view.id).name : view.list.name) + ' | 動画リスト整理' : '動画リスト整理';
+  if(f){ const e = document.getElementById(f); if(e) e.focus(); }
+}
+
+/* ---------- プレイヤー（再描画しても iframe を残す） ---------- */
+let holder = null;
+function detachPlayer(){ const b = $('#playerBox'); if(b && holder && holder.parentNode === b){ document.body.appendChild(holder); holder.style.display='none'; } return holder; }
+function attachPlayer(){ const b = $('#playerBox'); if(b && holder && cur >= 0){ b.appendChild(holder); holder.style.display=''; b.classList.add('on'); updateNow(); } }
+function updateNow(){ const n = $('#nowTitle'); const it = currentItems()[cur]; if(n && it) n.textContent = it.t || it.v; }
+
+async function play(i){
+  const items = currentItems(); if(!items[i]) return;
+  cur = i;
+  if(!holder){
+    holder = document.createElement('div');
+    holder.innerHTML = `<div class="frame"><div id="ytp"></div></div><div class="bar"><span class="now" id="nowTitle"></span><button type="button" data-act="prev">${ic('next').replace('<svg','<svg style="transform:scaleX(-1)"')}前へ</button><button type="button" data-act="next">次へ${ic('next')}</button></div>`;
+  }
+  render();
+  await loadYT();
+  const box = $('#playerBox'); if(box) box.scrollIntoView({block:'nearest',behavior:'smooth'});
+  if(player && player.loadVideoById){ player.loadVideoById(items[i].v); }
+  else {
+    player = new YT.Player('ytp', {
+      width:'100%', height:'100%', videoId:items[i].v,
+      playerVars:{autoplay:1, rel:0, playsinline:1},
+      events:{onStateChange:e => { if(e.data === YT.PlayerState.ENDED) step(1); }}
+    });
+  }
+}
+function step(d){ const n = currentItems().length; if(!n) return; const j = cur + d; if(j >= 0 && j < n) play(j); }
+function resetPlayer(){ try{ player && player.destroy && player.destroy(); }catch(e){} player = null; holder = null; cur = -1; editing = null; }
+
+/* ---------- 操作 ---------- */
+const curList = () => db.lists.find(l => l.id === view.id);
+document.addEventListener('submit', e => {
+  const f = e.target.closest('[data-act="create"]'); if(!f) return;
+  e.preventDefault();
+  const name = $('#newName').value.trim() || '新しいリスト';
+  const l = {id:uid(), name, items:[]}; db.lists.unshift(l); save();
+  view = {kind:'list', id:l.id}; render();
+});
+document.addEventListener('input', e => {
+});
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-act]'); if(!el || el.tagName === 'FORM') return;
+  const act = el.dataset.act, i = +el.dataset.i;
+  const l = view.kind === 'list' ? curList() : null;
+  switch(act){
+    case 'open': resetPlayer(); view = {kind:'list', id:el.dataset.id}; render(); window.scrollTo(0,0); break;
+    case 'rename': renaming = el.dataset.id; render(); $('#renT')?.focus(); $('#renT')?.select(); break;
+    case 'rencancel': renaming = null; render(); break;
+    case 'rensave': { const t = db.lists.find(x => x.id === el.dataset.id); if(t){ t.name = $('#renT').value.trim() || t.name; save(); } renaming = null; render(); break; }
+    case 'home': resetPlayer(); if(location.hash) history.replaceState(null,'',location.pathname + location.search); view = {kind:'home'}; render(); break;
+    case 'play': play(i); break;
+    case 'next': step(1); break;
+    case 'prev': step(-1); break;
+    case 'up': case 'down': {
+      const j = act === 'up' ? i-1 : i+1; if(!l || j < 0 || j >= l.items.length) break;
+      [l.items[i], l.items[j]] = [l.items[j], l.items[i]];
+      if(cur === i) cur = j; else if(cur === j) cur = i;
+      save(); render(); break; }
+    case 'del': if(l){ l.items.splice(i,1); if(cur === i){ resetPlayer(); } else if(cur > i) cur--; save(); render(); } break;
+    case 'edit': editing = i; render(); $('#edT')?.focus(); break;
+    case 'edcancel': editing = null; render(); break;
+    case 'edsave': if(l){ l.items[i].t = $('#edT').value.trim(); l.items[i].n = $('#edN').value.trim(); editing = null; save(); render(); } break;
+    case 'dellist': if(l && confirm(`「${l.name}」を削除しますか？\n共有済みのリンクはそのまま残ります。`)){ db.lists = db.lists.filter(x => x !== l); save(); resetPlayer(); view = {kind:'home'}; render(); } break;
+    case 'add': {
+      if(!l || adding) break;
+      const ids = parseIds($('#urls').value).filter(id => !l.items.some(x => x.v === id));
+      if(!ids.length){ toast('追加できるYouTubeのリンクが見つかりません'); break; }
+      adding = true; render();
+      const titles = await Promise.all(ids.map(fetchTitle));
+      ids.forEach((id,k) => l.items.push({v:id, t:titles[k], n:''}));
+      adding = false; save(); render(); toast(`${ids.length} 本追加しました`); break; }
+    case 'share': {
+      if(!l) break;
+      const url = location.href.split('#')[0] + '#s=' + await pack(toShare(l));
+      const box = $('#shareUrl'); box.hidden = false; box.value = url; box.select();
+      let ok = false; try{ await navigator.clipboard.writeText(url); ok = true; }catch(err){}
+      $('#shareInfo').textContent = `リンクの長さ: ${url.length.toLocaleString()} 文字` + (url.length > 8000 ? '（長めです。チャットによっては途切れることがあります。リストを分けるのがおすすめです）' : '');
+      toast(ok ? '共有リンクをコピーしました' : 'リンクを選択しました。コピーして送ってください'); break; }
+    case 'export': {
+      const blob = new Blob([JSON.stringify({l:db.lists.map(toShare)})], {type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'video-lists-' + new Date().toISOString().slice(0,10) + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      toast('ファイルに書き出しました'); break; }
+    case 'backuplink': {
+      const url = location.href.split('#')[0] + '#b=' + await pack({l:db.lists.map(toShare)});
+      let ok = false; try{ await navigator.clipboard.writeText(url); ok = true; }catch(err){}
+      if(ok) $('#backupInfo').textContent = `復元リンクをコピーしました（${url.length.toLocaleString()} 文字）。ブックマークやメモに貼って残してください。`;
+      else prompt('このリンクをコピーして残してください', url);
+      break; }
+    case 'restore': {
+      view.lists.forEach(l => db.lists.push(l)); save(); toast(`${view.lists.length} 件のリストを追加しました`);
+      resetPlayer(); history.replaceState(null,'',location.pathname + location.search); view = {kind:'home'}; render(); break; }
+    case 'import': {
+      const n = fromShare({n:view.list.name, v:view.list.items.map(x => [x.v,x.t,x.n])});
+      db.lists.unshift(n); save(); resetPlayer(); history.replaceState(null,'',location.pathname + location.search);
+      view = {kind:'list', id:n.id}; render(); toast('自分のリストに保存しました'); break; }
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if(e.target.id !== 'renT') return;
+  if(e.key === 'Enter'){ e.preventDefault(); document.querySelector('[data-act="rensave"]').click(); }
+  else if(e.key === 'Escape'){ renaming = null; render(); }
+});
+document.addEventListener('change', async e => {
+  if(e.target.id !== 'impFile' || !e.target.files[0]) return;
+  try{
+    const o = JSON.parse(await e.target.files[0].text());
+    const ls = (o.l || []).map(fromShare);
+    if(!ls.length) throw 0;
+    ls.forEach(l => db.lists.push(l)); save(); render(); toast(`${ls.length} 件のリストを読み込みました`);
+  }catch(err){ toast('読み込めないファイルです'); }
+});
+
+async function route(){
+  const m = /^#s=([\w-]+)$/.exec(location.hash);
+  resetPlayer();
+  const b = /^#b=([\w-]+)$/.exec(location.hash);
+  if(b){
+    try{ view = {kind:'backup', lists:((await unpack(b[1])).l || []).map(fromShare)}; }
+    catch(e){ view = {kind:'backup', lists:null}; }
+  } else if(m){
+    try{ view = {kind:'shared', list:fromShare(await unpack(m[1]))}; }
+    catch(e){ view = {kind:'shared', list:null}; }
+  } else view = {kind:'home'};
+  render();
+}
+window.addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
