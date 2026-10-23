@@ -107,6 +107,9 @@ let fileName = 'log';
 
 function parse(text){
   const d = new DOMParser().parseFromString(text, 'text/html');
+  // 書き出し済みのログを読み込んだ場合に備えて、前回埋め込んだ絞り込みUIを取り除く
+  d.querySelectorAll('nav.tab-filter').forEach(e => e.remove());
+  d.querySelectorAll('script, style').forEach(e => { if(e.textContent.includes('tab-filter')) e.remove(); });
   return d.querySelector('article.message') ? d : null;
 }
 
