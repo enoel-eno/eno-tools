@@ -64,9 +64,7 @@ div.pl[data-act]:hover{border-color:var(--accent)}
 .grip{touch-action:none;cursor:grab}
 .grip:active{cursor:grabbing}
 .dragging{position:relative;z-index:5;opacity:.85;border-color:var(--accent)!important;box-shadow:0 8px 22px rgba(0,0,0,.22);transition:none!important}
-.drop-ph{position:absolute;border:2px dashed var(--accent);border-radius:12px;background:transparent;z-index:6;pointer-events:none;transition:top .15s;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--accent);font-size:13px;font-weight:700;letter-spacing:.06em}
-.drop-ph span,.drop-ph b{background:var(--surface);border-radius:5px;padding:2px 8px}
-.drop-ph b{font-family:var(--f-mono);font-weight:700;border:1px solid var(--accent);border-radius:5px;padding:1px 7px}
+.drop-ph{position:absolute;border:2px solid var(--accent);border-radius:12px;background:var(--soft);z-index:4;pointer-events:none;transition:top .15s}
 body.is-dragging,body.is-dragging *{cursor:grabbing!important;user-select:none;-webkit-user-select:none}
 div.pl[data-id]:not(.dragging){cursor:grab}
 .pl:hover .go{color:var(--accent);transform:translateX(3px)}
@@ -408,7 +406,6 @@ function dragUpdate(){
     const t = (i > d.from && i <= to) ? -h : (i < d.from && i >= to) ? h : 0;
     c.style.transform = t ? 'translateY(' + t + 'px)' : '';
   });
-  d.ph.lastChild.textContent = (to + 1) + ' 番目';
   d.ph.style.top = (to < d.from ? d.tops[to] : d.tops[to] + d.hs[to] - d.hs[d.from]) + 'px';
 }
 function dragTick(){
@@ -423,7 +420,6 @@ function startDrag(card, e){
   const i = cards.indexOf(card);
   const rs = cards.map(c => c.getBoundingClientRect());
   const ph = document.createElement('div'); ph.className = 'drop-ph';
-  ph.innerHTML = '<span>ここに移動</span><b></b>';
   ph.style.cssText = 'left:' + (rs[i].left + scrollX) + 'px;width:' + rs[i].width + 'px;height:' + rs[i].height + 'px;top:' + (rs[i].top + scrollY) + 'px';
   document.body.appendChild(ph);
   cards.forEach(c => { if(c !== card) c.style.transition = 'transform .15s'; });
