@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>地雷チェック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+:root{
+  --bg:#f6f7f9; --surface:#ffffff; --ink:#1f2328; --muted:#6b7178; --line:#dde1e5; --accent:#2b2f36; --soft:#f0f2f4;
+  --mine:#9a4a44; --mine-soft:#f5e6e4; --ok:#4a7360; --ok-soft:#e6efe9; --like:#4a6a8a; --like-soft:#e5ecf4;
+  --f-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15171a; --surface:#1e2125; --ink:#e6e8ea; --muted:#9aa0a6; --line:#30343a; --accent:#d5d9de; --soft:#272b30;
+  --mine:#d9958d; --mine-soft:#352223; --ok:#8fbf9f; --ok-soft:#1f2d25; --like:#8fb0d3; --like-soft:#1f2833; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15171a; --surface:#1e2125; --ink:#e6e8ea; --muted:#9aa0a6; --line:#30343a; --accent:#d5d9de; --soft:#272b30;
+  --mine:#d9958d; --mine-soft:#352223; --ok:#8fbf9f; --ok-soft:#1f2d25; --like:#8fb0d3; --like-soft:#1f2833; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7}
+.wrap{max-width:760px;margin:0 auto;padding:40px max(16px,env(safe-area-inset-right,0px)) calc(64px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;text-decoration:none;margin-bottom:22px}
+.back:hover{color:var(--accent)}
+svg.i{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+header{margin-bottom:28px}
+.eyebrow{display:flex;align-items:center;gap:12px;font-size:12px;letter-spacing:.24em;color:var(--muted);margin:0 0 10px}
+.eyebrow::before{content:"";width:36px;height:1.5px;background:var(--ink)}
+h1{display:flex;align-items:center;gap:.4em;font-family:var(--f-display);font-weight:800;font-size:clamp(28px,6vw,40px);letter-spacing:.06em;margin:0;line-height:1.3}
+header p{margin:10px 0 0;color:var(--muted)}
+.name-row{display:flex;flex-direction:column;gap:4px;margin-bottom:20px}
+.req{display:inline-block;margin-left:8px;padding:0 6px;font-size:11px;letter-spacing:.04em;color:var(--mine);border:1px solid var(--mine);border-radius:4px;vertical-align:1px}
+.hint{margin:2px 0 0;font-size:13px;color:var(--mine)}
+input[type=text].bad{border-color:var(--mine)}
+label.cap{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+input[type=text]{font:inherit;width:100%;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+input[type=text]:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.progress{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 14px;margin-bottom:20px;background:var(--surface);border:1px solid var(--line);border-radius:10px;font-size:13px}
+.progress b{font-family:var(--f-mono);font-weight:700}
+.bar{flex:1;min-width:80px;height:4px;background:var(--soft);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.cat{margin-bottom:22px}
+.cat h2{font-family:var(--f-display);font-weight:800;font-size:18px;letter-spacing:.06em;margin:0 0 8px}
+.items{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;align-items:center;padding:11px 14px;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item .t{min-width:0;overflow-wrap:anywhere}
+.item .t small{display:block;color:var(--muted);font-size:12px;line-height:1.5}
+.opts{display:flex;gap:6px}
+.opt input{position:absolute;opacity:0;pointer-events:none}
+.opt span{display:inline-block;min-width:4.6em;text-align:center;font-size:13px;font-weight:700;padding:5px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);background:var(--surface);user-select:none}
+.opt span:hover{border-color:var(--accent);color:var(--ink)}
+.opt input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.opt.mine input:checked+span{background:var(--mine-soft);border-color:var(--mine);color:var(--mine)}
+.opt.ok input:checked+span{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.opt.like input:checked+span{background:var(--like-soft);border-color:var(--like);color:var(--like)}
+.del{border:0;background:none;color:var(--muted);padding:4px;cursor:pointer;display:inline-grid;place-items:center;border-radius:6px;margin-left:6px;vertical-align:middle}
+.del:hover{color:var(--mine)}
+button.btn{font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 14px}
+button.btn:hover{border-color:var(--accent);color:var(--accent)}
+button.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+button.btn.primary:hover{filter:brightness(1.1);color:var(--bg)}
+.add{display:flex;gap:8px;margin-top:10px}
+.add input{flex:1}
+.out{margin-top:30px;padding-top:22px;border-top:1px solid var(--line)}
+.out h2{font-family:var(--f-display);font-weight:800;font-size:20px;letter-spacing:.06em;margin:0 0 12px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.actions .sp{flex:1}
+pre{margin:0 0 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-family:var(--f-mono);font-size:13px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+canvas{display:block;max-width:100%;height:auto;border:1px solid var(--line);border-radius:10px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--accent);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;opacity:0;pointer-events:none;transition:.2s}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media (max-width:520px){
+  .item{grid-template-columns:1fr}
+  .opts{width:100%}.opt{flex:1}.opt span{display:block;min-width:0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<meta property="og:type" content="website"><meta property="og:site_name" content="TRPGツール"><meta property="og:title" content="地雷チェック"><meta property="og:description" content="地雷になりうる内容を一覧から選んで、結果をテキストや画像でコピーできます。"><meta name="description" content="地雷になりうる内容を一覧から選んで、結果をテキストや画像でコピーできます。"><meta name="robots" content="noindex, nofollow"><link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html"><svg class="i" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>ツール一覧へ戻る</a>
+  <header>
+    <p class="eyebrow">LANDMINE CHECK</p>
+    <h1><svg class="i" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>地雷チェック</h1>
+    <p>それぞれの内容が「地雷」かどうかを選んでください。終わったら、結果をテキストか画像でコピーできます。</p>
+  </header>
+
+  <div class="name-row">
+    <label class="cap" for="who">名前<span class="req">必須</span></label>
+    <input type="text" id="who" placeholder="例：えの" autocomplete="off" maxlength="30" required>
+    <p class="hint" id="whoHint" hidden>名前を入力してください。結果をコピーするときに必要です。</p>
+  </div>
+
+  <div class="progress" id="progress">
+    <span>回答 <b id="pDone">0</b> / <b id="pAll">0</b></span>
+    <span class="bar"><i id="pBar"></i></span>
+    <span>地雷 <b id="pMine">0</b></span>
+  </div>
+
+  <div id="list"></div>
+
+  <div class="cat">
+    <h2>自分で追加</h2>
+    <div class="add">
+      <input type="text" id="addIn" placeholder="追加したい項目を入力" autocomplete="off" maxlength="60">
+      <button class="btn" id="addBtn" type="button"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>追加</button>
+    </div>
+  </div>
+
+  <section class="out">
+    <h2>結果</h2>
+    <div class="actions">
+      <button class="btn primary" id="copyText" type="button"><svg class="i" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>テキストをコピー</button>
+      <button class="btn primary" id="copyImg" type="button"><svg class="i" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>画像をコピー</button>
+      <button class="btn" id="saveImg" type="button"><svg class="i" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>画像を保存</button>
+      <span class="sp"></span>
+      <button class="btn" id="reset" type="button"><svg class="i" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>回答をリセット</button>
+    </div>
+    <pre id="preview"></pre>
+    <canvas id="cv" aria-label="結果の画像プレビュー"></canvas>
+  </section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const CATS = [
+  {n:"ロスト・進行", items:["PCのロスト（死亡）","発狂によるロスト・永久的狂気","理不尽な即死・初見殺し","ダイスの失敗による救いのない展開","PCが何もできない無力な展開","バッドエンド・後味の悪い終わり方","全滅・エンディングに至れない展開","KPの判断によるダイス結果の変更","シークレットダイス（結果が見えない判定）"]},
+  {n:"NPC・人間関係", items:["NPCの死亡","親しいNPCの裏切り・敵対","子どもの死・被害","動物の死・虐待","PC同士の対立・PvP","PC間の恋愛・恋愛ロール","NPCとの恋愛要素","PC間の秘匿・隠し事","自分のPCへの好意・恋愛感情の描写"]},
+  {n:"キャラクターの扱い", items:["自分のPCの行動を勝手に描写される","PCの設定・過去の捏造や改変","ロールプレイの強要","感情や反応の強制（怖がる・泣くなど）","PCへの精神操作・洗脳","PCの身体の欠損・後遺症","PCの強制的な性格変化","PCの持ち物・技能の喪失"]},
+  {n:"グロテスク・暴力", items:["流血・怪我の描写","四肢の欠損・切断","内臓・臓器の描写","死体・遺体の描写","拷問・苦痛の描写","人体の改造・変形","食人・カニバリズム","嘔吐・排泄","暴力・殺傷の生々しい描写"]},
+  {n:"生き物・恐怖症", items:["虫・寄生虫","蛇・爬虫類","目・眼球","集合体（蓮の花托など）","閉所・暗所","高所","針・刃物などの先端","水・溺れる描写"]},
+  {n:"精神・心理", items:["発狂・精神崩壊の描写","自傷・自殺","トラウマ・過去の傷","孤独・見捨てられる展開","幼少期のトラウマ・毒親","虐待・DV","いじめ","洗脳・カルト","狂気的な独白・不気味な語り"]},
+  {n:"性・センシティブ", items:["性的な描写・示唆","性暴力・性犯罪","性別・性自認に関わる話題","妊娠・出産","児童への性的な描写"]},
+  {n:"現実の話題", items:["特定の宗教・信仰","政治・思想","戦争・テロ","災害・事故","病気・闘病・介護","薬物・依存","差別的な表現"]},
+  {n:"卓の運営・マナー", items:["長時間・深夜までのセッション","ログの公開・公開卓","通話中の雑談が多い","テキストセッションの返信遅延","途中で卓を抜ける・遅刻","他PLのロールへの口出し","進行へのダメ出し・指摘","強い言葉・ネタバレ発言"]}
+];
+const KEY="landmine-check-v1";
+let st={who:"",ans:{},custom:[]};
+try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(s&&typeof s==="object")st=Object.assign(st,s)}catch(e){}
+for(const k in st.ans)if(st.ans[k]==="safe")st.ans[k]="ok";
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
+const $=id=>document.getElementById(id);
+const ICON_X='<svg class="i" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+
+function allCats(){
+  const c=CATS.slice();
+  if(st.custom.length)c.push({n:"自分で追加した項目",items:st.custom,custom:true});
+  return c;
+}
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function render(){
+  const root=$("list");root.innerHTML="";
+  let n=0;
+  allCats().forEach(cat=>{
+    const sec=document.createElement("section");sec.className="cat";
+    let h='<h2>'+esc(cat.n)+'</h2><div class="items">';
+    cat.items.forEach(it=>{
+      const id="q"+(n++), cur=st.ans[it];
+      h+='<div class="item"><div class="t">'+esc(it)+(cat.custom?'<button class="del" type="button" data-del="'+esc(it)+'" aria-label="「'+esc(it)+'」を削除">'+ICON_X+'</button>':'')+'</div>'
+        +'<div class="opts" role="radiogroup" aria-label="'+esc(it)+'">'
+        +'<label class="opt mine"><input type="radio" name="'+id+'" value="mine" data-k="'+esc(it)+'"'+(cur==="mine"?' checked':'')+'><span>地雷</span></label>'
+        +'<label class="opt ok"><input type="radio" name="'+id+'" value="ok" data-k="'+esc(it)+'"'+(cur==="ok"?' checked':'')+'><span>大丈夫</span></label>'
+        +'<label class="opt like"><input type="radio" name="'+id+'" value="like" data-k="'+esc(it)+'"'+(cur==="like"?' checked':'')+'><span>好き</span></label>'
+        +'</div></div>';
+    });
+    sec.innerHTML=h+'</div>';root.appendChild(sec);
+  });
+  update();
+}
+function groups(){
+  const mine=[],ok=[],like=[],none=[];
+  allCats().forEach(c=>c.items.forEach(it=>{
+    const a=st.ans[it];(a==="mine"?mine:a==="ok"?ok:a==="like"?like:none).push(it);
+  }));
+  return {mine,ok,like,none};
+}
+function textOut(){
+  const g=groups(),t=[];
+  t.push("【地雷チェック】"+(st.who?" "+st.who:""));
+  [["地雷",g.mine],["好き",g.like]].forEach(([n,a])=>{
+    t.push("");t.push("■"+n+"（"+a.length+"）");
+    t.push(...(a.length?a.map(x=>"・"+x):["なし"]));
+  });
+  return t.join("\n");
+}
+
+function update(){
+  const g=groups(),total=g.mine.length+g.ok.length+g.like.length+g.none.length,done=total-g.none.length;
+  $("pDone").textContent=done;$("pAll").textContent=total;$("pMine").textContent=g.mine.length;
+  $("pBar").style.width=(total?done/total*100:0)+"%";
+  $("preview").textContent=textOut();
+  drawImage();
+}
+
+/* 画像（常にライト配色で描画） */
+function drawImage(){
+  const g=groups(),cv=$("cv"),S=2,W=720,P=36;
+  const F='"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif', D='"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif';
+  const meas=document.createElement("canvas").getContext("2d");
+  meas.font='700 15px '+F;
+  const chipLayout=(items)=>{ // pillを折り返して配置
+    const rows=[];let row=[],x=0;const maxW=W-P*2;
+    items.forEach(t=>{const w=Math.ceil(meas.measureText(t).width)+26;
+      if(x+w>maxW&&row.length){rows.push(row);row=[];x=0}
+      row.push({t,w,x});x+=w+8});
+    if(row.length)rows.push(row);return rows;
+  };
+  const secs=[
+    {title:"地雷",items:g.mine,fg:"#9a4a44",bg:"#f5e6e4",bd:"#9a4a44"},
+    {title:"好き",items:g.like,fg:"#4a6a8a",bg:"#e5ecf4",bd:"#4a6a8a"}
+  ];
+  secs.forEach(s=>s.rows=chipLayout(s.items));
+  const CH=32,GAP=8;
+  let H=P+(st.who?112:84);
+  secs.forEach(s=>{H+=36+(s.rows.length?s.rows.length*(CH+GAP):28)+18});
+  H+=P-10;
+  cv.width=W*S;cv.height=H*S;
+  const c=cv.getContext("2d");c.scale(S,S);
+  c.fillStyle="#f6f7f9";c.fillRect(0,0,W,H);
+  c.fillStyle="#ffffff";c.strokeStyle="#dde1e5";c.lineWidth=1;
+  rr(c,12.5,12.5,W-25,H-25,12);c.fill();c.stroke();
+  let y=P+10;
+  c.textBaseline="alphabetic";
+  c.fillStyle="#6b7178";c.font='500 12px '+F;
+  if(c.letterSpacing!==undefined)c.letterSpacing="3px";
+  c.fillText("LANDMINE CHECK",P+48,y+4);
+  c.fillStyle="#1f2328";c.fillRect(P,y,36,1.5);
+  y+=40;
+  if(c.letterSpacing!==undefined)c.letterSpacing="2px";
+  c.fillStyle="#1f2328";c.font='800 30px '+D;c.fillText("地雷チェック",P,y);
+  if(c.letterSpacing!==undefined)c.letterSpacing="0px";
+  if(st.who){y+=30;c.fillStyle="#6b7178";c.font='500 15px '+F;c.fillText(st.who,P,y)}
+  y+=26;
+  secs.forEach(s=>{
+    c.fillStyle="#1f2328";c.font='800 18px '+D;
+    if(c.letterSpacing!==undefined)c.letterSpacing="1px";
+    c.fillText(s.title,P,y+10);
+    const tw=c.measureText(s.title).width;
+    c.fillStyle="#6b7178";c.font='700 14px "JetBrains Mono",monospace';
+    if(c.letterSpacing!==undefined)c.letterSpacing="0px";
+    c.fillText(String(s.items.length),P+tw+10,y+10);
+    y+=26;
+    if(!s.rows.length){c.fillStyle="#6b7178";c.font='500 14px '+F;c.fillText("なし",P,y+16);y+=28}
+    s.rows.forEach(r=>{
+      r.forEach(p=>{
+        c.fillStyle=s.bg;c.strokeStyle=s.bd;c.lineWidth=1;
+        rr(c,P+p.x+.5,y+.5,p.w-1,CH-1,8);c.fill();c.stroke();
+        c.fillStyle=s.fg;c.font='700 15px '+F;c.fillText(p.t,P+p.x+13,y+21);
+      });
+      y+=CH+GAP;
+    });
+    y+=18;
+  });
+}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+
+/* コピー・保存 */
+let tt;
+function toast(m){const e=$("toast");e.textContent=m;e.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),2000)}
+function legacyCopy(text){
+  const ta=document.createElement("textarea");ta.value=text;ta.style.cssText="position:fixed;opacity:0";
+  document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}
+  ta.remove();return ok;
+}
+function needName(){
+  if(st.who)return true;
+  $("whoHint").hidden=false;$("who").classList.add("bad");$("who").focus();$("who").scrollIntoView({block:"center"});
+  toast("名前を入力してください");return false;
+}
+$("copyText").onclick=async()=>{
+  if(!needName())return;
+  const t=textOut();
+  try{await navigator.clipboard.writeText(t);toast("テキストをコピーしました")}
+  catch(e){toast(legacyCopy(t)?"テキストをコピーしました":"コピーできませんでした")}
+};
+const blob=()=>new Promise(r=>$("cv").toBlob(r,"image/png"));
+function download(b){
+  const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="landmine-check.png";
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+$("copyImg").onclick=async()=>{
+  if(!needName())return;
+  try{
+    if(!window.ClipboardItem||!navigator.clipboard||!navigator.clipboard.write)throw 0;
+    await navigator.clipboard.write([new ClipboardItem({"image/png":blob()})]);
+    toast("画像をコピーしました");
+  }catch(e){toast("画像のコピーに対応していないため、保存しました");const b=await blob();download(b)}
+};
+$("saveImg").onclick=async()=>{if(!needName())return;download(await blob());toast("画像を保存しました")};
+
+/* 入力 */
+$("list").addEventListener("change",e=>{
+  const k=e.target.dataset&&e.target.dataset.k;if(!k)return;
+  st.ans[k]=e.target.value;save();update();
+});
+$("list").addEventListener("click",e=>{
+  const b=e.target.closest("[data-del]");if(!b)return;
+  const k=b.dataset.del;st.custom=st.custom.filter(x=>x!==k);delete st.ans[k];save();render();
+});
+$("who").value=st.who;
+$("who").addEventListener("input",e=>{st.who=e.target.value.trim();if(st.who){$("whoHint").hidden=true;$("who").classList.remove("bad")}save();update()});
+function addItem(){
+  const v=$("addIn").value.trim();if(!v)return;
+  const exists=allCats().some(c=>c.items.includes(v));
+  if(exists){toast("同じ項目がすでにあります");return}
+  st.custom.push(v);save();$("addIn").value="";render();
+}
+$("addBtn").onclick=addItem;
+$("addIn").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing)addItem()});
+$("reset").onclick=()=>{
+  if(!confirm("すべての回答をリセットします。よろしいですか？"))return;
+  st.ans={};save();render();
+};
+
+render();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(drawImage);
+</script>
+</body>
+</html>
