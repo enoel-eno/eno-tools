@@ -54,6 +54,11 @@ textarea{resize:vertical;min-height:84px;line-height:1.55}
 /* 一覧 */
 .newlist{display:flex;gap:8px;margin-bottom:18px}
 .newlist input{flex:1;min-width:0}
+.search{position:relative;margin-bottom:14px}
+.search .ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.search input{padding-left:34px}
+.pl[hidden]{display:none!important}
+.filtering .grip{opacity:.3;cursor:default}
 a.pl,button.pl,div.pl{display:grid;grid-template-columns:auto 96px minmax(0,1fr) auto;align-items:center;gap:6px 16px;padding:12px;text-align:left;width:100%;border-radius:12px;font-size:15px;font-weight:400}
 .pl .th{width:96px;aspect-ratio:16/9;border-radius:6px;background:var(--soft);overflow:hidden;display:grid;place-items:center;color:var(--muted)}
 .pl .th img{width:100%;height:100%;object-fit:cover;display:block}
@@ -126,6 +131,7 @@ const I = {
   up:'<path d="m18 15-6-6-6 6"/>', down:'<path d="m6 9 6 6 6-6"/>',
   edit:'<path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   link:'<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
   next:'<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/>',
   save:'<path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
@@ -187,7 +193,8 @@ function loadYT(){
 
 /* ---------- 状態 ---------- */
 let view = {kind:'home'};        // home | list(id) | shared(list)
-let renaming = null;
+let renaming = null, q = '';
+const norm = x => String(x||'').toLowerCase().normalize('NFKC');
 let cur = -1, player = null, editing = null, adding = false;
 
 function toast(msg){
@@ -208,13 +215,14 @@ function renderHome(){
     const first = l.items[0];
     const th = `<span class="th">${first ? `<img src="${thumb(first.v)}" alt="" loading="lazy">` : ic('film')}</span>`;
     if(renaming === l.id) return `<div class="card pl"><span></span>${th}<div class="stack" style="gap:8px"><input id="renT" value="${esc(l.name)}" maxlength="60" aria-label="リスト名"><div class="row"><button type="button" class="primary" data-act="rensave" data-id="${l.id}">保存</button><button type="button" data-act="rencancel">キャンセル</button></div></div><span></span></div>`;
-    return `<div class="card pl" data-act="open" data-id="${l.id}"><button type="button" class="icon grip" data-act="noop" title="ドラッグして並べ替え" aria-label="ドラッグして並べ替え">${ic('grip')}</button>${th}
+    return `<div class="card pl" data-act="open" data-id="${l.id}" data-q="${esc(norm(l.name + ' ' + l.items.map(x => x.t).join(' ')))}" ${q && !norm(l.name + ' ' + l.items.map(x => x.t).join(' ')).includes(norm(q.trim())) ? 'hidden' : ''}><button type="button" class="icon grip" data-act="noop" title="ドラッグして並べ替え" aria-label="ドラッグして並べ替え">${ic('grip')}</button>${th}
       <span><p class="nm">${esc(l.name)}</p><span class="muted">${l.items.length} 本</span></span>
       <span class="row" style="flex-wrap:nowrap"><button type="button" class="icon" data-act="sharelist" data-id="${l.id}" title="共有リンクをコピー" aria-label="共有リンクをコピー" ${l.items.length?'':'disabled'}>${ic('link')}</button><button type="button" class="icon" data-act="rename" data-id="${l.id}" title="名前を変更" aria-label="名前を変更">${ic('edit')}</button><button type="button" class="icon go" data-act="open" data-id="${l.id}" aria-label="開く">${ic('next')}</button></span></div>`;
   }).join('');
   return `<a href="./" class="back">← ツール一覧</a>` + header('PLAYLIST', ic('list','') + '動画リスト整理', 'YouTubeのリンクをまとめて、リンクを知っている友達にだけ共有できます。') +
     `<form class="newlist" data-act="create"><input id="newName" placeholder="新しいリストの名前" maxlength="60" aria-label="新しいリストの名前"><button class="primary" type="submit">${ic('plus')}作成</button></form>` +
-    (cards ? `<div class="stack">${cards}</div>` : `<div class="empty">まだリストがありません。名前をつけて作成してください。</div>`) +
+    (db.lists.length > 1 ? `<div class="search">${ic('search')}<input id="q" type="search" value="${esc(q)}" placeholder="リスト名・動画タイトルで検索" aria-label="リストを検索" autocomplete="off"></div>` : '') +
+    (cards ? `<div class="stack${q ? ' filtering' : ''}">${cards}</div><p class="empty" id="noHit" ${!q.trim() || db.lists.some(l => norm(l.name + ' ' + l.items.map(x => x.t).join(' ')).includes(norm(q.trim()))) ? 'hidden' : ''}>該当するリストがありません。</p>` : `<div class="empty">まだリストがありません。名前をつけて作成してください。</div>`) +
     `<section class="card share" style="margin-top:28px"><h2>バックアップ</h2>
       <p class="muted" style="margin:0">リストはこのブラウザの中にだけ保存されています。別の端末に移したり、消えたときに備えて控えを残せます。</p>
       <div class="row">
@@ -332,13 +340,18 @@ document.addEventListener('submit', e => {
   view = {kind:'list', id:l.id}; render();
 });
 document.addEventListener('input', e => {
+  if(e.target.id !== 'q') return;
+  q = e.target.value; const k = norm(q.trim()); let n = 0;
+  document.querySelectorAll('.pl[data-q]').forEach(c => { const h = !!k && !c.dataset.q.includes(k); c.hidden = h; if(!h) n++; });
+  document.querySelector('.stack')?.classList.toggle('filtering', !!k);
+  const nh = $('#noHit'); if(nh) nh.hidden = n > 0;
 });
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-act]'); if(!el || el.tagName === 'FORM') return;
   const act = el.dataset.act, i = +el.dataset.i;
   const l = view.kind === 'list' ? curList() : null;
   switch(act){
-    case 'open': resetPlayer(); view = {kind:'list', id:el.dataset.id}; render(); window.scrollTo(0,0); break;
+    case 'open': q = ''; resetPlayer(); view = {kind:'list', id:el.dataset.id}; render(); window.scrollTo(0,0); break;
     case 'rename': renaming = el.dataset.id; render(); $('#renT')?.focus(); $('#renT')?.select(); break;
     case 'rencancel': renaming = null; render(); break;
     case 'rensave': { const t = db.lists.find(x => x.id === el.dataset.id); if(t){ t.name = $('#renT').value.trim() || t.name; save(); } renaming = null; render(); break; }
@@ -438,7 +451,7 @@ function startDrag(card, e){
   card.classList.add('dragging'); dragTick();
 }
 document.addEventListener('pointerdown', e => {
-  if(drag || e.button > 0 || !e.target.closest) return;
+  if(drag || e.button > 0 || !e.target.closest || q.trim()) return;
   const g = e.target.closest('.grip');
   if(g){
     const card = g.closest('.pl[data-id], .it[data-i]'); if(!card) return;
