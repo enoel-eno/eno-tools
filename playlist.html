@@ -195,7 +195,7 @@ function loadYT(){
 
 /* ---------- 状態 ---------- */
 let view = {kind:'home'};        // home | list(id) | shared(list)
-let renaming = null, q = '';
+let renaming = null, q = '', creating = false;
 const norm = x => String(x||'').toLowerCase().normalize('NFKC');
 let cur = -1, player = null, editing = null, adding = false;
 
@@ -222,7 +222,7 @@ function renderHome(){
       <span class="row" style="flex-wrap:nowrap"><button type="button" class="icon" data-act="sharelist" data-id="${l.id}" title="共有リンクをコピー" aria-label="共有リンクをコピー" ${l.items.length?'':'disabled'}>${ic('link')}</button><button type="button" class="icon" data-act="rename" data-id="${l.id}" title="名前を変更" aria-label="名前を変更">${ic('edit')}</button><button type="button" class="icon go" data-act="open" data-id="${l.id}" aria-label="開く">${ic('next')}</button></span></div>`;
   }).join('');
   return `<a href="./" class="back">← ツール一覧</a>` + header('PLAYLIST', ic('list','') + '動画リスト整理', 'YouTubeのリンクをまとめて、リンクを知っている友達にだけ共有できます。') +
-    `<form class="newlist" data-act="create"><input id="newName" placeholder="新しいリストの名前" maxlength="60" aria-label="新しいリストの名前"><button class="primary" type="submit">${ic('plus')}作成</button></form>` +
+    (creating ? `<form class="newlist" data-act="create"><input id="newName" placeholder="新しいリストの名前" maxlength="60" aria-label="新しいリストの名前"><button class="primary" type="submit">作成</button><button type="button" data-act="newcancel">キャンセル</button></form>` : `<div class="newlist"><button type="button" class="primary" data-act="newopen">${ic('plus')}新しいリストを作る</button></div>`) +
     (db.lists.length > 1 ? `<div class="search">${ic('search')}<input id="q" type="search" value="${esc(q)}" placeholder="リスト名・動画タイトルで検索" aria-label="リストを検索" autocomplete="off"></div>` : '') +
     (cards ? `<div class="stack${q ? ' filtering' : ''}">${cards}</div><p class="empty" id="noHit" ${!q.trim() || db.lists.some(l => norm(l.name + ' ' + l.items.map(x => x.t).join(' ')).includes(norm(q.trim()))) ? 'hidden' : ''}>該当するリストがありません。</p>` : `<div class="empty">まだリストがありません。名前をつけて作成してください。</div>`) +
     `<section class="card share" style="margin-top:28px"><h2>バックアップ</h2>
@@ -339,7 +339,7 @@ document.addEventListener('submit', e => {
   e.preventDefault();
   const name = $('#newName').value.trim() || '新しいリスト';
   const l = {id:uid(), name, items:[]}; db.lists.unshift(l); save();
-  view = {kind:'list', id:l.id}; render();
+  creating = false; view = {kind:'list', id:l.id}; render();
 });
 document.addEventListener('input', e => {
   if(e.target.id !== 'q') return;
@@ -354,6 +354,8 @@ document.addEventListener('click', async e => {
   const l = view.kind === 'list' ? curList() : null;
   switch(act){
     case 'open': q = ''; resetPlayer(); view = {kind:'list', id:el.dataset.id}; render(); window.scrollTo(0,0); break;
+    case 'newopen': creating = true; render(); $('#newName')?.focus(); break;
+    case 'newcancel': creating = false; render(); break;
     case 'rename': renaming = el.dataset.id; render(); $('#renT')?.focus(); $('#renT')?.select(); break;
     case 'rencancel': renaming = null; render(); break;
     case 'rensave': { const t = db.lists.find(x => x.id === el.dataset.id); if(t){ t.name = $('#renT').value.trim() || t.name; save(); } renaming = null; render(); break; }
@@ -378,13 +380,13 @@ document.addEventListener('click', async e => {
       if(!l) break;
       const url = location.href.split('#')[0] + '#s=' + await pack(toShareShort(l));
       const box = $('#shareUrl'); box.hidden = false; box.value = url; box.select();
-      let ok = false; try{ await navigator.clipboard.writeText('@silent\n' + l.name + '\n' + url); ok = true; }catch(err){}
+      let ok = false; try{ await navigator.clipboard.writeText(l.name + '\n' + url); ok = true; }catch(err){}
       $('#shareInfo').textContent = `リンクの長さ: ${url.length.toLocaleString()} 文字` + (url.length > 8000 ? '（長めです。チャットによっては途切れることがあります。リストを分けるのがおすすめです）' : '');
       toast(ok ? '共有リンクをコピーしました' : 'リンクを選択しました。コピーして送ってください'); break; }
     case 'sharelist': {
       const t = db.lists.find(x => x.id === el.dataset.id); if(!t || !t.items.length) break;
       const url = location.href.split('#')[0] + '#s=' + await pack(toShareShort(t));
-      let ok = false; try{ await navigator.clipboard.writeText('@silent\n' + t.name + '\n' + url); ok = true; }catch(err){}
+      let ok = false; try{ await navigator.clipboard.writeText(t.name + '\n' + url); ok = true; }catch(err){}
       if(ok) toast(`「${t.name}」の共有リンクをコピーしました` + (url.length > 8000 ? '（長めです。チャットによっては途切れることがあります）' : ''));
       else prompt('コピーして送ってください', url);
       break; }
