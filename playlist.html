@@ -162,7 +162,9 @@ async function unpack(t){
   return JSON.parse(await new Response(st).text());
 }
 const toShare = l => ({n:l.name, v:l.items.map(x => [x.v, x.t, x.n || ''])});
-const fromShare = o => ({id:uid(), name:String(o.n||'共有リスト'), items:(o.v||[]).filter(a => /^[\w-]{11}$/.test(a[0])).map(a => ({v:a[0], t:String(a[1]||''), n:String(a[2]||'')}))});
+// 共有リンク用: タイトルは入れず（受け取り側で取得）、メモがある動画だけ配列にして短くする
+const toShareShort = l => ({n:l.name, v:l.items.map(x => x.n ? [x.v, '', x.n] : x.v)});
+const fromShare = o => ({id:uid(), name:String(o.n||'共有リスト'), items:(o.v||[]).map(a => Array.isArray(a) ? a : [a]).filter(a => /^[\w-]{11}$/.test(a[0])).map(a => ({v:a[0], t:String(a[1]||''), n:String(a[2]||'')}))});
 
 /* ---------- YouTube ---------- */
 const YT_RE = /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:[^\s#]*&)?v=|shorts\/|embed\/|live\/|v\/))([\w-]{11})/;
@@ -239,7 +241,7 @@ function itemHtml(it, i, ro){
   return `<li class="card it ${cur===i?'cur':''}" data-i="${i}">
     <span class="lead">${ro ? '' : `<button type="button" class="icon grip" data-act="noop" title="ドラッグして並べ替え" aria-label="ドラッグして並べ替え">${ic('grip')}</button>`}<span class="no">${i+1}</span></span>
     <button type="button" class="th" data-act="play" data-i="${i}" aria-label="再生"><img src="${thumb(it.v)}" alt="" loading="lazy"><span class="play">${ic('play','ico')}</span></button>
-    <div><div class="tt">${esc(it.t || '（タイトルなし）')}</div>${it.n ? `<div class="nt">${esc(it.n)}</div>` : ''}</div>
+    <div><div class="tt">${esc(it.t || (ro ? '読み込み中…' : '（タイトルなし）'))}</div>${it.n ? `<div class="nt">${esc(it.n)}</div>` : ''}</div>
     <div class="ops">
       <a class="btn icon" href="https://www.youtube.com/watch?v=${it.v}" target="_blank" rel="noopener noreferrer" title="YouTubeで開く" aria-label="YouTubeで開く">${ic('ext')}</a>
       ${ro ? '' : `<button type="button" class="icon" data-act="edit" data-i="${i}" title="編集" aria-label="編集">${ic('edit')}</button>
@@ -374,15 +376,15 @@ document.addEventListener('click', async e => {
       adding = false; save(); render(); toast(`${ids.length} 本追加しました`); break; }
     case 'share': {
       if(!l) break;
-      const url = location.href.split('#')[0] + '#s=' + await pack(toShare(l));
+      const url = location.href.split('#')[0] + '#s=' + await pack(toShareShort(l));
       const box = $('#shareUrl'); box.hidden = false; box.value = url; box.select();
-      let ok = false; try{ await navigator.clipboard.writeText(url); ok = true; }catch(err){}
+      let ok = false; try{ await navigator.clipboard.writeText(l.name + '\n' + url); ok = true; }catch(err){}
       $('#shareInfo').textContent = `リンクの長さ: ${url.length.toLocaleString()} 文字` + (url.length > 8000 ? '（長めです。チャットによっては途切れることがあります。リストを分けるのがおすすめです）' : '');
       toast(ok ? '共有リンクをコピーしました' : 'リンクを選択しました。コピーして送ってください'); break; }
     case 'sharelist': {
       const t = db.lists.find(x => x.id === el.dataset.id); if(!t || !t.items.length) break;
-      const url = location.href.split('#')[0] + '#s=' + await pack(toShare(t));
-      let ok = false; try{ await navigator.clipboard.writeText(url); ok = true; }catch(err){}
+      const url = location.href.split('#')[0] + '#s=' + await pack(toShareShort(t));
+      let ok = false; try{ await navigator.clipboard.writeText(t.name + '\n' + url); ok = true; }catch(err){}
       if(ok) toast(`「${t.name}」の共有リンクをコピーしました` + (url.length > 8000 ? '（長めです。チャットによっては途切れることがあります）' : ''));
       else prompt('コピーして送ってください', url);
       break; }
@@ -504,6 +506,14 @@ document.addEventListener('change', async e => {
   }catch(err){ toast('読み込めないファイルです'); }
 });
 
+async function fillTitles(l){
+  await Promise.all(l.items.map(async (it, i) => {
+    if(it.t) return;
+    it.t = await fetchTitle(it.v);
+    if(view.list !== l) return;
+    const el = document.querySelectorAll('.items .tt')[i]; if(el) el.textContent = it.t || '（タイトルなし）';
+  }));
+}
 async function route(){
   const m = /^#s=([\w-]+)$/.exec(location.hash);
   resetPlayer();
@@ -512,7 +522,7 @@ async function route(){
     try{ view = {kind:'backup', lists:((await unpack(b[1])).l || []).map(fromShare)}; }
     catch(e){ view = {kind:'backup', lists:null}; }
   } else if(m){
-    try{ view = {kind:'shared', list:fromShare(await unpack(m[1]))}; }
+    try{ view = {kind:'shared', list:fromShare(await unpack(m[1]))}; fillTitles(view.list); }
     catch(e){ view = {kind:'shared', list:null}; }
   } else view = {kind:'home'};
   render();
