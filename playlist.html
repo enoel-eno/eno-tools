@@ -378,13 +378,13 @@ document.addEventListener('click', async e => {
       if(!l) break;
       const url = location.href.split('#')[0] + '#s=' + await pack(toShareShort(l));
       const box = $('#shareUrl'); box.hidden = false; box.value = url; box.select();
-      let ok = false; try{ await navigator.clipboard.writeText(l.name + '\n' + url); ok = true; }catch(err){}
+      let ok = false; try{ await navigator.clipboard.writeText('@silent\n' + l.name + '\n' + url); ok = true; }catch(err){}
       $('#shareInfo').textContent = `リンクの長さ: ${url.length.toLocaleString()} 文字` + (url.length > 8000 ? '（長めです。チャットによっては途切れることがあります。リストを分けるのがおすすめです）' : '');
       toast(ok ? '共有リンクをコピーしました' : 'リンクを選択しました。コピーして送ってください'); break; }
     case 'sharelist': {
       const t = db.lists.find(x => x.id === el.dataset.id); if(!t || !t.items.length) break;
       const url = location.href.split('#')[0] + '#s=' + await pack(toShareShort(t));
-      let ok = false; try{ await navigator.clipboard.writeText(t.name + '\n' + url); ok = true; }catch(err){}
+      let ok = false; try{ await navigator.clipboard.writeText('@silent\n' + t.name + '\n' + url); ok = true; }catch(err){}
       if(ok) toast(`「${t.name}」の共有リンクをコピーしました` + (url.length > 8000 ? '（長めです。チャットによっては途切れることがあります）' : ''));
       else prompt('コピーして送ってください', url);
       break; }
