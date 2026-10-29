@@ -25,6 +25,14 @@ header{margin-bottom:36px}
 .eyebrow::before{content:"";width:36px;height:1.5px;background:var(--ink)}
 h1{font-family:var(--f-display);font-weight:800;font-size:clamp(30px,6vw,44px);letter-spacing:.06em;margin:0;line-height:1.3}
 header p{margin:10px 0 0;color:var(--muted)}
+.search{position:relative;margin:0 0 18px}
+.search svg{position:absolute;left:14px;top:50%;width:18px;height:18px;margin-top:-9px;color:var(--muted);pointer-events:none}
+.search input{width:100%;font:inherit;font-size:15px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 14px 11px 42px}
+.search input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.none{color:var(--muted);text-align:center;margin:28px 0 0}
+.cat{margin:0 0 30px}
+.cat-t{display:flex;align-items:center;gap:12px;font-size:12px;font-weight:500;letter-spacing:.2em;color:var(--muted);margin:0 0 12px}
+.cat-t::after{content:"";flex:1;height:1px;background:var(--line)}
 ul{list-style:none;margin:0;padding:0;display:grid;gap:14px}
 a.card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px 20px;padding:22px 22px;background:var(--surface);border:1px solid var(--line);border-radius:12px;color:inherit;text-decoration:none;transition:border-color .15s,transform .15s}
 a.card:hover{border-color:var(--accent)}
@@ -46,71 +54,102 @@ footer{margin-top:40px;font-size:12px;color:var(--muted)}
 <body>
 <div class="wrap">
   <header>
-    <p class="eyebrow">CALL OF CTHULHU</p>
+    <p class="eyebrow">ENO TOOLS</p>
     <h1>TRPGツール</h1>
     <p>セッションの前後で使う便利ツールです。すべてブラウザだけで動きます。</p>
   </header>
 
-  <ul>
+  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input type="search" id="q" placeholder="ツールを検索" aria-label="ツールを検索" autocomplete="off"></div>
+
+  <section class="cat">
+    <h2 class="cat-t">ログ・成長</h2>
+    <ul>
     <li>
       <a class="card" href="growth-roll.html">
         <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></svg></span>
-        <div><h2 class="name">成長判定ツール</h2><p class="desc">ココフォリアのログから、成長判定対象技能を取得します。このページ内で成長判定もできます。</p></div>
+        <div><h3 class="name">成長判定ツール</h3><p class="desc">ココフォリアのログから、成長判定対象技能を取得します。このページ内で成長判定もできます。</p></div>
         <span class="go" aria-hidden="true">→</span>
       </a>
     </li>
     <li>
       <a class="card" href="palette-checker.html">
         <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg></span>
-        <div><h2 class="name">チャパレ成長チェッカー</h2><p class="desc">成長前と成長後のチャットパレットを比べて、変化した技能と技能値を一覧化します。</p></div>
-        <span class="go" aria-hidden="true">→</span>
-      </a>
-    </li>
-    <li>
-      <a class="card" href="display-maker.html">
-        <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></span>
-        <div><h2 class="name">ディスプレイ作成ツール</h2><p class="desc">立ち絵やシナリオ名などを入力してディスプレイ画像を作成できます。</p></div>
-        <span class="go" aria-hidden="true">→</span>
-      </a>
-    </li>
-    <li>
-      <a class="card" href="silence-trimmer.html">
-        <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
-        <div><h2 class="name">無音カットツール</h2><p class="desc">mp3 / wav の前後の無音を切り取ります。</p></div>
-        <span class="go" aria-hidden="true">→</span>
-      </a>
-    </li>
-    <li>
-      <a class="card" href="text-image-maker.html">
-        <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg></span>
-        <div><h2 class="name">文字画像メーカー</h2><p class="desc">文字を入力して、フチ取りや影つきの透過PNG画像を作成できます。</p></div>
+        <div><h3 class="name">チャパレ成長チェッカー</h3><p class="desc">成長前と成長後のチャットパレットを比べて、変化した技能と技能値を一覧化します。</p></div>
         <span class="go" aria-hidden="true">→</span>
       </a>
     </li>
     <li>
       <a class="card" href="log-formatter.html">
         <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></span>
-        <div><h2 class="name">ログ整形ツール</h2><p class="desc">ココフォリアのログを、タブごとに絞り込めるHTMLに変換します。</p></div>
+        <div><h3 class="name">ログ整形ツール</h3><p class="desc">ココフォリアのログを、タブごとに絞り込めるHTMLに変換します。</p></div>
+        <span class="go" aria-hidden="true">→</span>
+      </a>
+    </li>
+    </ul>
+  </section>
+  <section class="cat">
+    <h2 class="cat-t">画像</h2>
+    <ul>
+    <li>
+      <a class="card" href="display-maker.html">
+        <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></span>
+        <div><h3 class="name">ディスプレイ作成ツール</h3><p class="desc">立ち絵やシナリオ名などを入力してディスプレイ画像を作成できます。</p></div>
+        <span class="go" aria-hidden="true">→</span>
+      </a>
+    </li>
+    <li>
+      <a class="card" href="text-image-maker.html">
+        <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg></span>
+        <div><h3 class="name">文字画像メーカー</h3><p class="desc">文字を入力して、フチ取りや影つきの透過PNG画像を作成できます。</p></div>
+        <span class="go" aria-hidden="true">→</span>
+      </a>
+    </li>
+    </ul>
+  </section>
+  <section class="cat">
+    <h2 class="cat-t">音声・動画</h2>
+    <ul>
+    <li>
+      <a class="card" href="silence-trimmer.html">
+        <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg></span>
+        <div><h3 class="name">無音カットツール</h3><p class="desc">mp3 / wav の前後の無音を切り取ります。</p></div>
         <span class="go" aria-hidden="true">→</span>
       </a>
     </li>
     <li>
       <a class="card" href="playlist.html">
         <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><path d="M3 6h13"/><path d="M3 12h13"/><path d="M3 18h9"/><path d="m18 14 4 3-4 3z"/></svg></span>
-        <div><h2 class="name">動画リスト整理</h2><p class="desc">YouTubeの動画リンクをリストにまとめて、リンクを知っている人にだけ共有できます。</p></div>
+        <div><h3 class="name">動画リスト整理</h3><p class="desc">YouTubeの動画リンクをリストにまとめて、リンクを知っている人にだけ共有できます。</p></div>
         <span class="go" aria-hidden="true">→</span>
       </a>
     </li>
+    </ul>
+  </section>
+  <section class="cat">
+    <h2 class="cat-t">セッション準備</h2>
+    <ul>
     <li>
       <a class="card" href="landmine-check.html">
         <span class="no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:1em;height:1em"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
-        <div><h2 class="name">地雷チェック</h2><p class="desc">地雷になりうる内容を一覧から選んで、結果をテキストや画像でコピーできます。</p></div>
+        <div><h3 class="name">地雷チェック</h3><p class="desc">地雷になりうる内容を一覧から選んで、結果をテキストや画像でコピーできます。</p></div>
         <span class="go" aria-hidden="true">→</span>
       </a>
     </li>
-  </ul>
+    </ul>
+  </section>
+  <p class="none" id="none" hidden>該当するツールがありません。</p>
 
   <footer>入力した内容や設定は、お使いのブラウザの中にだけ保存されます。</footer>
 </div>
+<script>
+const q=document.getElementById("q"),items=[...document.querySelectorAll("li")],cats=[...document.querySelectorAll(".cat")],none=document.getElementById("none");
+const norm=t=>t.toLowerCase().normalize("NFKC");
+q.addEventListener("input",()=>{
+  const k=norm(q.value).split(/\s+/).filter(Boolean);let n=0;
+  items.forEach(li=>{const t=norm(li.textContent),ok=k.every(w=>t.includes(w));li.hidden=!ok;if(ok)n++});
+  cats.forEach(c=>c.hidden=!c.querySelector("li:not([hidden])"));
+  none.hidden=n>0;
+});
+</script>
 </body>
 </html>
