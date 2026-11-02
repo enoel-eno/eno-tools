@@ -116,6 +116,12 @@ details.ex button{font-size:12px;padding:2px 8px}
 .copied{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:7px 16px;border-radius:6px;font-size:13px}
 .note{font-size:12px;color:var(--muted);margin:0}
 @media (prefers-reduced-motion:no-preference){.roll span{transition:color .2s}}
+body.shared .panel{display:none}
+body.shared .grid{grid-template-columns:minmax(0,1fr)}
+.shared-note{font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.shared-note b{color:var(--ink)}
+.shared-note ul{margin:6px 0 0;padding-left:1.2em}
+.shared-note summary{cursor:pointer;margin-top:4px}
 </style>
 <style>@media (max-width:520px){header h1{font-size:calc((100vw - 32px)/13.5);white-space:nowrap}}</style></head>
 <body>
@@ -151,11 +157,11 @@ details.ex button{font-size:12px;padding:2px 8px}
         <div class="rl-head"><span>元のダイス結果</span><span>扱い</span><span>成長量</span></div>
         <div class="rl-grid">
           <label class="rl-name" for="fx-vals">出目</label><input id="fx-vals" class="amt wide" value="1,100" aria-label="判定なしで成長する出目（カンマ区切り）"><input id="fx-amt" class="amt" value="1D10" aria-label="指定出目の成長量">
-          <span class="rl-name">決定的成功</span><select id="m-crit" aria-label="決定的成功の扱い"><option value="over">技能値超で成長</option><option value="under">技能値以下で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-crit" class="amt" value="1D10" aria-label="決定的成功の成長量">
-          <span class="rl-name">致命的失敗</span><select id="m-fumble" aria-label="致命的失敗の扱い"><option value="over">技能値超で成長</option><option value="under">技能値以下で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-fumble" class="amt" value="1D10" aria-label="致命的失敗の成長量">
-          <span class="rl-name">スペシャル</span><select id="m-special" aria-label="スペシャルの扱い"><option value="over">技能値超で成長</option><option value="under">技能値以下で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-special" class="amt" value="1D10" aria-label="スペシャルの成長量">
-          <span class="rl-name">成功</span><select id="m-success" aria-label="成功の扱い"><option value="over">技能値超で成長</option><option value="under">技能値以下で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-success" class="amt" value="1D10" aria-label="成功の成長量">
-          <span class="rl-name">失敗</span><select id="m-fail" aria-label="失敗の扱い"><option value="over">技能値超で成長</option><option value="under">技能値以下で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-fail" class="amt" value="1D10" aria-label="失敗の成長量">
+          <span class="rl-name">決定的成功</span><select id="m-crit" aria-label="決定的成功の扱い"><option value="over">判定失敗で成長</option><option value="under">判定成功で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-crit" class="amt" value="1D10" aria-label="決定的成功の成長量">
+          <span class="rl-name">致命的失敗</span><select id="m-fumble" aria-label="致命的失敗の扱い"><option value="over">判定失敗で成長</option><option value="under">判定成功で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-fumble" class="amt" value="1D10" aria-label="致命的失敗の成長量">
+          <span class="rl-name">スペシャル</span><select id="m-special" aria-label="スペシャルの扱い"><option value="over">判定失敗で成長</option><option value="under">判定成功で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-special" class="amt" value="1D10" aria-label="スペシャルの成長量">
+          <span class="rl-name">成功</span><select id="m-success" aria-label="成功の扱い"><option value="over">判定失敗で成長</option><option value="under">判定成功で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-success" class="amt" value="1D10" aria-label="成功の成長量">
+          <span class="rl-name">失敗</span><select id="m-fail" aria-label="失敗の扱い"><option value="over">判定失敗で成長</option><option value="under">判定成功で成長</option><option value="auto">判定なしで成長</option><option value="none">成長しない</option></select><input id="a-fail" class="amt" value="1D10" aria-label="失敗の成長量">
         </div>
         <div class="rl-cf">
           <label class="rl-check"><input type="checkbox" id="cf-on"> 成長判定の出目が</label>
@@ -179,6 +185,10 @@ details.ex button{font-size:12px;padding:2px 8px}
         <label><input type="checkbox" id="showSecret" checked> シークレットダイスも含める</label>
       </fieldset>
       <div class="status" id="status"></div>
+      <div class="field">
+        <div class="tools"><button type="button" id="shareBtn">PL共有リンクをコピー</button></div>
+        <p class="note">いま表示している成長候補とルールをリンクにまとめます。PLがリンクを開くと、その場で成長判定を振れます（ログの原文は含まれません）。</p>
+      </div>
     </section>
 
     <section class="results" id="results" aria-live="polite"></section>
@@ -277,7 +287,8 @@ function diffEntries(a, b){
 }
 
 function analyze(){
-  const A = toEntries($('#logA').value), B = toEntries($('#logB').value);
+  if(shared) return analyzeShared();
+  const A =toEntries($('#logA').value), B = toEntries($('#logB').value);
   let entries = A, mode = 'single', note = '';
   if(A.length && B.length){
     const r = diffEntries(A, B);
@@ -387,8 +398,10 @@ function render(){
       html += `<div class="sum"><div class="sum-t">成長まとめ（技能ごとの合計）</div>${grown.length ? `<ul>${grown.map(s =>
         `<li><span class="skill">${esc(s.skill)}</span><span class="num">${s.from}→${s.from + s.total}</span><span class="gain">+${s.total}</span><span class="ex-n">${s.n}回中${s.g}回成長</span></li>`).join('')}</ul>` : '<span class="ng">成長した技能はありません</span>'}</div>`;
     }
-    html += `<div class="pc-foot"><button type="button" class="primary" data-roll="${esc(name)}">ここで成長判定を振る</button><button type="button" data-cmd="${esc(name)}">判定用コマンドをコピー</button><button type="button" data-sum="${esc(name)}" ${done ? '' : 'disabled'}>結果をコピー</button></div></article>`;
+    html += `<div class="pc-foot"><button type="button" class="primary" data-roll="${esc(name)}" ${shared && done ? 'disabled' : ''}>ここで成長判定を振る</button><button type="button" data-cmd="${esc(name)}">判定用コマンドをコピー</button><button type="button" data-sum="${esc(name)}" ${done ? '' : 'disabled'}>結果をコピー</button></div></article>`;
   }
+  if(html) html = `<div class="tools"><button type="button" id="copyAll">全員の判定用コマンドをコピー</button></div>` + html;
+  if(shared) html = sharedNote(R) + html;
   box.innerHTML = html || `<div class="empty">${R.cats.size ? '対象の出目が出た技能はありません。' : '対象を1つ以上選んでください。'}</div>`;
 }
 
@@ -411,7 +424,7 @@ function getRules(){
 function saveRules(){ try{ localStorage.setItem('growthRules', JSON.stringify(getRules())); }catch(e){} }
 function loadRules(){
   let p = null; try{ p = JSON.parse(localStorage.getItem('growthRules')); }catch(e){}
-  setRules(p && p.m ? p : PRESETS.std);
+  setRules(p && p.m ? p : PRESETS.eno);
 }
 function rollExpr(expr){
   const t = String(expr).replace(/\s/g,'').toUpperCase().replace(/Ｄ/g,'D').replace(/＋/g,'+').replace(/[－ー]/g,'-');
@@ -452,6 +465,18 @@ function rollHtml(rl){
     : '<span class="ng">変化なし</span>';
   return `<span class="roll" title="${esc(rl.expr || '')}">${head} ${body}</span>`;
 }
+// コピー用：探索者ごとに「判定コマンド（元のダイス結果）」を1行ずつ並べる。複数人ぶんは空行で区切る
+const CAT_LABEL = {crit:'決定的成功', fumble:'致命的失敗', special:'スペシャル', success:'成功', fail:'失敗'};
+function cmdText(names){
+  const R = getRules();
+  return names.map(name => {
+    const lines = (last.items[name] || []).map(it => {
+      const cmd = cmdFor(it, R);
+      return cmd && `${cmd}（${it.roll.die} ${CAT_LABEL[it.roll.cat]}）`;
+    }).filter(Boolean);
+    return lines.length ? `${name}\n${lines.join('\n')}` : null;
+  }).filter(Boolean).join('\n\n');
+}
 function cmdFor(it, R){
   const fx = R.fxVals.split(/[,、\s]+/).filter(Boolean).map(Number);
   const tag = `【${it.skill}】`;
@@ -459,7 +484,7 @@ function cmdFor(it, R){
   const mode = R.m[it.roll.cat];
   if(mode === 'none') return null;
   if(mode === 'auto') return `${R.a[it.roll.cat]} ${tag}成長`;
-  return `1D100${mode === 'under' ? '<=' : '>'}${it.rowVal} ${tag}成長判定`;
+  return `1D100${mode === 'under' ? '<=' : '>'}${it.rowVal} ${tag}`;
 }
 
 function toast(msg){
@@ -481,24 +506,27 @@ document.addEventListener('click', e => {
     const items = last.items[t.dataset.roll] || [], R = getRules();
     items.forEach(it => { rolls[it.rowKey] = judge(it.roll, it.base, R); });
     render();
+    if(shared) saveSharedRolls();
   } else if(t.dataset.cmd){
-    const R = getRules();
-    const lines = (last.items[t.dataset.cmd] || []).map(it => cmdFor(it, R)).filter(Boolean);
-    if(!lines.length) return toast('対象の技能がありません');
-    copy(t.dataset.cmd + '\n' + lines.join('\n'));
+    const text = cmdText([t.dataset.cmd]);
+    if(!text) return toast('対象の技能がありません');
+    copy(text);
   } else if(t.id === 'copyRules'){
-    const R = getRules();
-    const MODE = {over:'技能値超で成長', under:'技能値以下で成長', auto:'判定なしで成長', none:'成長しない'};
-    const LABEL = {crit:'決定的成功', fumble:'致命的失敗', special:'スペシャル', success:'成功', fail:'失敗'};
-    const notes = [];
-    if(R.fxVals.trim()) notes.push(`※出目${R.fxVals.trim()}：判定なしで成長（${R.fxAmt}）`);
-    CATS.filter(c => last.cats.has(c)).forEach(c => notes.push(`※${LABEL[c]}：${MODE[R.m[c]]}${R.m[c] === 'none' ? '' : `（${R.a[c]}）`}`));
-    if(R.cfOn) notes.push(`※成長判定の出目が${R.cfCrit}以下/${R.cfFum}以上なら ${R.cfAmt}`);
-    copy(notes.join('\n'));
+    copy(rulesNotes(getRules(), last.cats).join('\n'));
+  } else if(t.id === 'shareResultBtn'){
+    packShare({...shared, x: rolls}).then(p => copy(location.href.split('#')[0] + '#s=' + p));
+  } else if(t.id === 'shareBtn'){
+    if(!last || !last.items || !Object.keys(last.items).length) return toast('共有する成長候補がありません');
+    if(location.protocol === 'file:') return toast('公開ページ（https）で開いて作成してください');
+    packShare(shareData()).then(p => copy(location.href.split('#')[0] + '#s=' + p));
   } else if(t.dataset.sum){
     const lines = summarize(last.items[t.dataset.sum] || []).filter(s => s.total > 0)
       .map(s => `【${s.skill}】${s.from}→${s.from + s.total}（+${s.total}）`);
     copy(`${t.dataset.sum}\n` + (lines.length ? lines.join('\n') : '成長した技能なし'));
+  } else if(t.id === 'copyAll'){
+    const text = cmdText(Object.keys(last.items));
+    if(!text) return toast('対象の技能がありません');
+    copy(text);
   } else if(t.dataset.preset){
     setRules(PRESETS[t.dataset.preset]); saveRules(); rolls = {}; render(); toast('ルールを切り替えました');
   } else if(t.dataset.add){
@@ -529,8 +557,71 @@ function loadFile(input, target){
 }
 loadFile($('#fileA'), '#logA'); loadFile($('#fileB'), '#logB');
 
-loadRules();
-render();
+// ---- PL共有 ----
+// ログの中身はサーバーに置かず、成長候補とルールを URL の # 以降に入れて渡す
+let shared = null, sharedKey = '';
+const toB64u = bytes => { let s = ''; for(let i = 0; i < bytes.length; i += 8192) s += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+const fromB64u = str => Uint8Array.from(atob(str.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
+const pipeBytes = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+async function packShare(obj){
+  const raw = new TextEncoder().encode(JSON.stringify(obj));
+  return window.CompressionStream ? 'z' + toB64u(await pipeBytes(raw, new CompressionStream('deflate-raw'))) : 'p' + toB64u(raw);
+}
+async function unpackShare(tag, str){
+  const bytes = fromB64u(str);
+  return JSON.parse(new TextDecoder().decode(tag === 'z' ? await pipeBytes(bytes, new DecompressionStream('deflate-raw')) : bytes));
+}
+function shareData(){
+  return {v: 1, rules: getRules(), pcs: Object.entries(last.items).filter(([, rows]) => rows.length)
+    .map(([n, rows]) => ({n, r: rows.map(x => [x.skill, x.base, x.roll.die, x.roll.cat, x.roll.ch || ''])}))};
+}
+function analyzeShared(){
+  const pcs = new Map(); let n = 0; const cats = new Set();
+  shared.pcs.forEach(p => {
+    const sk = new Map();
+    (p.r || []).forEach(([skill, base, die, cat, ch]) => {
+      if(!CATS.includes(cat)) return;
+      skill = String(skill); base = +base || 0; cats.add(cat); n++;
+      if(!sk.has(skill)) sk.set(skill, {values: new Map([[base, 1]]), rolls: []});
+      sk.get(skill).rolls.push({name: String(p.n), skill, value: base, die: isNaN(+die) ? '?' : +die, cat, ch: String(ch || ''), secret: false});
+    });
+    if(sk.size) pcs.set(String(p.n), sk);
+  });
+  return {pcs, mode: 'shared', note: '', rollCount: n, lines: n, cats, tabs: new Map(), rules: getRules()};
+}
+function rulesNotes(R, cats){
+  const MODE = {over:'判定失敗で成長', under:'判定成功で成長', auto:'判定なしで成長', none:'成長しない'};
+  const LABEL = {crit:'決定的成功', fumble:'致命的失敗', special:'スペシャル', success:'成功', fail:'失敗'};
+  const notes = [];
+  if(R.fxVals.trim()) notes.push(`※出目${R.fxVals.trim()}：判定なしで成長（${R.fxAmt}）`);
+  CATS.filter(c => cats.has(c)).forEach(c => notes.push(`※${LABEL[c]}：${MODE[R.m[c]]}${R.m[c] === 'none' ? '' : `（${R.a[c]}）`}`));
+  if(R.cfOn) notes.push(`※成長判定の出目が${R.cfCrit}以下/${R.cfFum}以上なら ${R.cfAmt}`);
+  return notes;
+}
+const sharedNote = R => `<div class="shared-note"><b>GMが共有した成長判定です。</b>自分の探索者のカードで「ここで成長判定を振る」を押してください（1人1回）。振ったら「結果リンクをコピー」を卓のチャットに貼ると、そのリンクを開いた人に全員分の結果が見えます。次に振る人は、最新の結果リンクから開いてください。
+  ${Object.keys(rolls).length ? '<div style="margin-top:8px"><button type="button" id="shareResultBtn" class="primary">結果リンクをコピー</button></div>' : ''}<details><summary>成長ルール</summary><ul>${rulesNotes(getRules(), R.cats).map(n => `<li>${esc(n.replace(/^※/, ''))}</li>`).join('')}</ul></details></div>`;
+function saveSharedRolls(){ try{ localStorage.setItem(sharedKey, JSON.stringify(rolls)); }catch(e){} }
+async function initShared(){
+  const m = location.hash.match(/^#s=([pz])([\w-]+)$/); if(!m) return;
+  let d; try{ d = await unpackShare(m[1], m[2]); }catch(e){ return; }
+  if(!d || !Array.isArray(d.pcs)) return;
+  shared = d;
+  let h = 0; for(const c of m[0]) h = (h * 31 + c.charCodeAt(0)) | 0;
+  sharedKey = 'growthShared:' + h;
+  setRules(d.rules && d.rules.m ? d.rules : PRESETS.eno);   // 共有を開いた人の保存済みルールは書き換えない
+  document.body.classList.add('shared');
+  $('header p').textContent = 'GMが共有した成長判定です。';
+  d.pcs.forEach(p => (p.r || []).forEach(r => { include[p.n + '\u0001' + r[0]] = true; }));
+  // リンクに入っている他の人の結果（x）と、この端末で振り済みの結果を合わせる
+  rolls = {};
+  if(d.x && typeof d.x === 'object') Object.entries(d.x).forEach(([k, v]) => {
+    if(v && typeof v === 'object') rolls[k] = {kind: ['auto','none'].includes(v.kind) ? v.kind : 'check', d100: +v.d100 || 0, tag: String(v.tag || ''), expr: String(v.expr || ''), gain: +v.gain || 0};
+  });
+  try{ Object.assign(rolls, JSON.parse(localStorage.getItem(sharedKey)) || {}); }catch(e){}
+}
+window.addEventListener('hashchange', () => location.reload());
+
+(async () => { loadRules(); await initShared(); render(); })();
 </script>
 </body>
 </html>
