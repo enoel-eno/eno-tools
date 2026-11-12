@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>エフェクト画像メーカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: control sheet on the left, live animated preview on the right; stacks on phones. */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --fg:#1f2328; --muted:#6b7178; --line:#dde1e5; --accent:#2b2f36; --accent-fg:#ffffff;
+  --f-ui:"Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --f-disp:"Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --f-mono:"JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#15171a; --panel:#1e2125; --fg:#e6e8ea; --muted:#9aa0a6; --line:#30343a; --accent:#d5d9de; --accent-fg:#15171a; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#15171a; --panel:#1e2125; --fg:#e6e8ea; --muted:#9aa0a6; --line:#30343a; --accent:#d5d9de; --accent-fg:#15171a; color-scheme:dark }
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--fg); font-family:var(--f-ui); font-size:14px; line-height:1.6}
+.wrap{max-width:1440px; margin:0 auto; padding-block:28px 48px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); display:flex; flex-direction:column; gap:20px}
+header{display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 16px}
+h1{margin:0; font-family:var(--f-disp); font-size:28px; font-weight:800; letter-spacing:.08em; text-wrap:balance}
+header p{margin:0; color:var(--muted)}
+.grid{display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start}
+.controls{flex:1 1 340px; max-width:440px; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 18px; display:flex; flex-direction:column; gap:4px}
+.preview{flex:999 1 420px; min-width:0; display:flex; flex-direction:column; gap:12px; position:sticky; top:12px}
+@media (max-width:900px){
+  .controls{max-width:none}
+  .grid{gap:12px}
+  .preview{order:-1; flex:1 1 100%; z-index:5; background:var(--bg); padding-block:8px; gap:8px; box-shadow:0 1px 0 var(--line)}
+  .preview .stage{height:min(34vh, 280px); min-height:0}
+  .preview canvas{max-height:calc(min(34vh, 280px) - 24px)}
+}
+fieldset{border:0; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; min-width:0}
+.sec{border-top:1px solid var(--line); padding-top:4px}
+.sec:first-child{border-top:0; padding-top:0}
+.sec > summary{list-style:none; display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:44px; cursor:pointer; font-size:13px; font-weight:700; letter-spacing:.12em; color:var(--fg); border-radius:6px}
+.sec > summary::-webkit-details-marker{display:none}
+.sec > summary::after{content:""; width:8px; height:8px; border-right:1.5px solid var(--muted); border-bottom:1.5px solid var(--muted); margin-right:4px; transform:rotate(45deg); transition:transform .15s}
+.sec:not([open]) > summary::after{transform:rotate(-45deg)}
+.sec > summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.sec > fieldset{padding-bottom:14px}
+.row{display:flex; gap:10px}
+.row > label{flex:1 1 0; min-width:0}
+label{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted)}
+label.inline{flex-direction:row; align-items:center; justify-content:space-between; gap:10px}
+label span.v{font-family:var(--f-mono); color:var(--fg)}
+select{font:inherit; font-size:14px; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; min-height:40px; width:100%}
+select:focus-visible, button:focus-visible, input:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+input[type=range]{width:100%; accent-color:var(--accent)}
+input[type=color]{width:56px; height:36px; padding:2px; border:1px solid var(--line); border-radius:6px; background:var(--bg); cursor:pointer}
+input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
+.seg{display:flex; flex-wrap:wrap; border:1px solid var(--line); border-radius:8px; overflow:hidden}
+.seg button{flex:1 1 20%; min-height:40px; border:0; background:var(--bg); color:var(--fg); font:inherit; font-size:13px; cursor:pointer}
+.seg button + button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--fg); color:var(--bg)}
+.sub{font-size:12px; color:var(--muted); margin:0}
+.pick{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+.pick .name{font-size:12px; color:var(--muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 120px}
+
+/* effect cards */
+.fxgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:8px}
+.fx{border:1px solid var(--line); border-radius:8px; background:var(--bg); display:flex; flex-direction:column; min-width:0; transition:border-color .15s}
+.fx:hover{border-color:var(--accent)}
+.fx.on{border-color:var(--accent)}
+.fxbtn{min-height:42px; border:0; background:transparent; color:var(--fg); font:inherit; font-size:13px; text-align:left; padding:6px 10px; cursor:pointer; border-radius:8px; display:flex; align-items:center; gap:8px}
+.fxbtn::before{content:""; flex:none; width:12px; height:12px; border:1.5px solid var(--muted); border-radius:50%}
+.fx.on .fxbtn{font-weight:700}
+.fx.on .fxbtn::before{background:var(--accent); border-color:var(--accent); box-shadow:inset 0 0 0 2px var(--bg)}
+.fxbtn:disabled{opacity:.45; cursor:not-allowed}
+.fxopt{display:flex; align-items:center; gap:8px; padding:0 10px 8px}
+.fxopt[hidden]{display:none}
+.fxopt input[type=range]{flex:1 1 auto; min-width:0}
+.fxopt input[type=color]{width:32px; height:26px; flex:none}
+.fxt span{font-size:11px; color:var(--muted); width:2.4em; flex:none}
+.fxt small{width:3.4em !important}
+.fxopt small{font-family:var(--f-mono); font-size:11px; color:var(--muted); width:2.2em; text-align:right; flex:none}
+.fxtools{display:flex; gap:8px; flex-wrap:wrap}
+
+.stage{position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; min-height:300px; background:repeating-conic-gradient(var(--line) 0 25%, transparent 0 50%) 0 0/16px 16px; border-radius:8px; border:1px solid var(--line); padding:12px}
+.stage.light{background:#fff}
+.stage.dark{background:#111}
+.stage canvas{display:block; max-width:100%; max-height:calc(100vh - 300px); min-height:0; width:auto; height:auto; object-fit:contain; margin:auto}
+.empty{position:absolute; inset:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-align:center; color:var(--muted); border:1.5px dashed var(--line); border-radius:8px; background:var(--panel); padding:16px}
+.empty[hidden]{display:none}
+.empty svg{width:28px; height:28px}
+.stage.drag .empty, .stage.drag{border-color:var(--accent)}
+.bar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between}
+.bar small{color:var(--muted); font-family:var(--f-mono); font-size:12px}
+.btns{display:flex; flex-wrap:wrap; gap:10px}
+.btn{min-height:44px; padding:0 22px; border-radius:8px; border:0; background:var(--accent); color:var(--accent-fg); font:inherit; font-weight:700; font-size:15px; letter-spacing:.06em; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+.btn.ghost{background:transparent; color:var(--fg); border:1px solid var(--line); font-weight:500}
+.btn.small{min-height:36px; padding:0 14px; font-size:13px}
+.status{min-height:1.6em; color:var(--muted); font-size:13px; margin:0}
+.result{border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:10px 14px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px}
+.result[hidden]{display:none}
+.meta{display:flex; flex-wrap:wrap; gap:6px 16px; font-family:var(--f-mono); font-size:12px; color:var(--muted)}
+.progress{height:4px; background:var(--line); border-radius:2px; overflow:hidden}
+.progress i{display:block; height:100%; width:0; background:var(--accent)}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+@media (max-width:520px){header h1{font-size:calc((100vw - 32px)/11);white-space:nowrap}}
+</style>
+<meta name="description" content="画像を拡大して、枠の中でパンやズームさせた動くAPNG / WebPを作ります。"><meta name="robots" content="noindex, nofollow"><link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+</head>
+<body>
+<div class="wrap">
+  <a href="./" style="display:inline-block;margin-bottom:6px;font-size:13px;color:var(--muted);text-decoration:none">← ツール一覧</a>
+  <header>
+    <h1><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:.85em;height:.85em;vertical-align:-.08em;margin-right:.3em"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>エフェクト画像メーカー</h1>
+    <p>画像を拡大して、枠の中で動かし、ぼかしやグリッチ、フィルム風の効果をつけた動くAPNG / WebPにします。</p>
+  </header>
+
+  <div class="grid">
+    <form class="controls" id="form" autocomplete="off" onsubmit="return false">
+      <details class="sec" open>
+        <summary>画像</summary>
+        <fieldset aria-label="画像">
+          <div class="pick">
+            <button type="button" class="btn small" id="pickBtn">画像を選ぶ</button>
+            <span class="name" id="fname">未選択</span>
+          </div>
+          <input type="file" id="file" accept="image/*" hidden>
+          <p class="sub">ドラッグ＆ドロップや、貼り付け（Ctrl+V）でも読み込めます。</p>
+          <label class="inline" for="dot">ドット絵モード（拡大時に補間しない） <input type="checkbox" id="dot"></label>
+        </fieldset>
+      </details>
+
+      <details class="sec" open>
+        <summary>カメラ（枠の中で動かす）</summary>
+        <fieldset aria-label="カメラ">
+          <label for="cam">動き
+            <select id="cam"></select>
+          </label>
+          <label for="zoom">拡大率 <span class="v" id="zoomVal"></span>
+            <input type="range" id="zoom" min="100" max="400" step="5">
+          </label>
+          <label for="range" id="rangeLabel">動く範囲 <span class="v" id="rangeVal"></span>
+            <input type="range" id="range" min="10" max="100" step="5">
+          </label>
+          <div id="modeBox">
+            <label style="margin-bottom:4px">進み方</label>
+            <div class="seg" role="group" aria-label="進み方" id="modeSeg">
+              <button type="button" data-v="oneway">一方向</button>
+              <button type="button" data-v="pingpong">行って戻る</button>
+            </div>
+            <p class="sub" id="modeNote"></p>
+          </div>
+          <div id="easeBox">
+            <label style="margin-bottom:4px">動き方</label>
+            <div class="seg" role="group" aria-label="動き方" id="easeSeg">
+              <button type="button" data-v="smooth">なめらか</button>
+              <button type="button" data-v="linear">一定の速さ</button>
+            </div>
+          </div>
+          <label for="aspect">枠の形
+            <select id="aspect"></select>
+          </label>
+          <p class="sub">枠の形に合わせて画像を切り抜き、拡大した画像を枠の中で動かします。拡大するほど、動かせる幅が広がります。</p>
+        </fieldset>
+      </details>
+
+      <details class="sec" open>
+        <summary>効果（重ねがけ）</summary>
+        <fieldset aria-label="効果">
+          <div class="fxtools">
+            <button type="button" class="btn ghost small" id="rand">おまかせ</button>
+            <button type="button" class="btn ghost small" id="clear">すべて解除</button>
+          </div>
+          <p class="sub" id="fxNote">選んだ効果は、カメラの動きに重ねがけされます。</p>
+        </fieldset>
+      </details>
+      <div id="fxGroups"></div>
+
+      <details class="sec" open>
+        <summary>出力</summary>
+        <fieldset aria-label="出力">
+          <div class="seg" role="group" aria-label="形式" id="fmtSeg">
+            <button type="button" data-v="apng">APNG</button>
+            <button type="button" data-v="webp">アニメWebP</button>
+          </div>
+          <label for="wq" id="wqLabel">WebPの画質 <span class="v" id="wqVal"></span>
+            <input type="range" id="wq" min="50" max="100" step="5">
+          </label>
+          <label class="inline" for="cap" id="capLabel">5MB以下に自動で調整する（WebP） <input type="checkbox" id="cap"></label>
+          <label for="size">大きさ（長辺）
+            <select id="size"></select>
+          </label>
+          <div class="row">
+            <label for="dur">長さ <span class="v" id="durVal"></span>
+              <input type="range" id="dur" min="0.5" max="8" step="0.1">
+            </label>
+            <label for="fps">コマ数
+              <select id="fps"></select>
+            </label>
+          </div>
+          <div>
+            <label style="margin-bottom:4px">1ループ中の動きの回数</label>
+            <div class="seg" role="group" aria-label="動きの回数" id="cycSeg">
+              <button type="button" data-v="1">1回</button>
+              <button type="button" data-v="2">2回</button>
+              <button type="button" data-v="3">3回</button>
+              <button type="button" data-v="4">4回</button>
+            </div>
+          </div>
+          <label class="inline" for="loop">くり返し再生する <input type="checkbox" id="loop"></label>
+          <label class="inline" for="bgOn">背景色をつける（透過画像のとき） <input type="checkbox" id="bgOn"></label>
+          <label class="inline" for="bgColor">背景の色 <input type="color" id="bgColor"></label>
+        </fieldset>
+      </details>
+
+      <details class="sec" open>
+        <summary>プレビュー表示</summary>
+        <fieldset aria-label="プレビュー表示">
+          <p class="sub">画像には影響しません。見やすい下地を選べます。</p>
+          <div class="seg" role="group" aria-label="プレビューの下地" id="stageSeg">
+            <button type="button" data-v="check">市松</button>
+            <button type="button" data-v="light">白</button>
+            <button type="button" data-v="dark">黒</button>
+          </div>
+        </fieldset>
+      </details>
+    </form>
+
+    <section class="preview" aria-label="プレビュー">
+      <div class="stage" id="stage">
+        <canvas id="cv" width="10" height="10"></canvas>
+        <div class="empty" id="empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          <span>ここに画像をドロップ<br>または貼り付け</span>
+          <button type="button" class="btn ghost small" id="pickBtn2">画像を選ぶ</button>
+        </div>
+      </div>
+      <div class="bar">
+        <small id="dims"></small>
+        <div class="btns">
+          <button type="button" class="btn ghost" id="playBtn" disabled>停止</button>
+          <button type="button" class="btn" id="make" disabled>動く画像を作成</button>
+        </div>
+      </div>
+      <div class="progress" id="prog" hidden><i id="progBar"></i></div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+
+      <section class="result" id="result" hidden aria-label="作成結果">
+        <div class="meta" id="resMeta"></div>
+        <a class="btn" id="resSave" href="#" download>保存する</a>
+      </section>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const TAU = Math.PI * 2;
+  const fract = x => x - Math.floor(x);
+  const hash = n => fract(Math.sin(n * 127.1 + 311.7) * 43758.5453);
+  const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const CAN_FILTER = typeof CanvasRenderingContext2D !== "undefined" && "filter" in CanvasRenderingContext2D.prototype;
+
+  // ---- camera: the frame stays fixed, the (zoomed) image moves inside it ----
+  // Each motion returns {px, py in -1..1 (position within the available slack), z (zoom factor)} for the cycle phase.
+  const tri = t => { t = fract(t); return t < .25 ? 4 * t : t < .75 ? 2 - 4 * t : 4 * t - 4; };   // sin-like triangle wave
+  // k.q runs -1 -> 1 along the path (one-way) or -1 -> 1 -> -1 (round trip). Image moving "right to left" = view moving right.
+  const CAMS = [
+    {id:"toL", n:"右から左へ", f:(k, Z) => ({px:k.q, py:0, z:Z})},
+    {id:"toR", n:"左から右へ", f:(k, Z) => ({px:-k.q, py:0, z:Z})},
+    {id:"toU", n:"下から上へ", f:(k, Z) => ({px:0, py:k.q, z:Z})},
+    {id:"toD", n:"上から下へ", f:(k, Z) => ({px:0, py:-k.q, z:Z})},
+    {id:"toUL", n:"右下から左上へ", f:(k, Z) => ({px:k.q, py:k.q, z:Z})},
+    {id:"toUR", n:"左下から右上へ", f:(k, Z) => ({px:-k.q, py:k.q, z:Z})},
+    {id:"toDL", n:"右上から左下へ", f:(k, Z) => ({px:k.q, py:-k.q, z:Z})},
+    {id:"toDR", n:"左上から右下へ", f:(k, Z) => ({px:-k.q, py:-k.q, z:Z})},
+    {id:"zin", n:"ズームイン", f:(k, Z) => ({px:0, py:0, z:1 + (Z - 1) * (k.q + 1) / 2}), noRange:true},
+    {id:"zout", n:"ズームアウト", f:(k, Z) => ({px:0, py:0, z:1 + (Z - 1) * (1 - k.q) / 2}), noRange:true},
+    {id:"circle", n:"円を描く", f:(k, Z) => ({px:Math.cos(k.w), py:Math.sin(k.w), z:Z}), loopOnly:true},
+    {id:"drift", n:"ゆらゆら漂う", f:(k, Z) => ({px:Math.sin(k.w + 1) * .5 + Math.sin(3 * k.w + 2) * .3 + Math.sin(5 * k.w) * .2, py:Math.cos(2 * k.w + .5) * .5 + Math.sin(4 * k.w + 1) * .3, z:Z}), loopOnly:true},
+    {id:"still", n:"動かさない（拡大して切り抜くだけ）", f:(k, Z) => ({px:0, py:0, z:Z}), noRange:true, loopOnly:true, noEase:true},
+  ];
+  const OLD_CAM = {panH:"toL", panV:"toU", panD:"toUL", panD2:"toUR", zoom:"zin", zoomPan:"toL"};
+  const BYCAM = Object.fromEntries(CAMS.map(c => [c.id, c]));
+  const ASPECTS = [["orig", "元の画像のまま"], ["1:1", "正方形 1:1"], ["4:3", "横長 4:3"], ["3:4", "縦長 3:4"], ["16:9", "横長 16:9"], ["9:16", "縦長 9:16"]];
+
+  // ---- effect catalogue (overlays on top of the camera image) ----
+  // fn(st, e) mutates the shared frame state. e = {tt: cycle phase 0..1, w: 2π·tt, s: strength 0..2, W, H, u: min side, c: colour}
+  const GROUPS = [["look", "見た目・色"], ["film", "フィルム・レトロ"]];
+  const EFFECTS = [
+    {id:"blur", g:"look", n:"ぼかして戻す", needFilter:true, fn:(st, e) => { st.blur = Math.max(st.blur, e.u * .03 * e.s * (.5 - .5 * Math.cos(e.w))); }},
+    {id:"focusin", g:"look", n:"ぼけた状態から戻る", needFilter:true, fn:(st, e) => { const p = Math.min(1, e.tt / .6); st.blur = Math.max(st.blur, e.u * .04 * e.s * (1 - p * p * (3 - 2 * p))); }},
+    {id:"sepia", g:"look", n:"セピア", noS:true, needFilter:true, fn:(st, e) => { st.sepia = 1; }},
+    {id:"mono", g:"look", n:"モノクロ", noS:true, needFilter:true, fn:(st, e) => { st.gray = 1; }},
+    {id:"oldfilm", g:"film", n:"古い映画（まとめて）", fn:(st, e) => {
+      if (CAN_FILTER) st.sepia = Math.max(st.sepia, .7); st.scratch = Math.max(st.scratch, e.s);
+      st.flicker = Math.max(st.flicker, e.s); st.vig = Math.max(st.vig, Math.min(1, .5 * e.s)); }},
+    {id:"scratch", g:"film", n:"傷とほこり", fn:(st, e) => { st.scratch = Math.max(st.scratch, e.s); }},
+    {id:"flicker", g:"film", n:"明るさのちらつき", fn:(st, e) => { st.flicker = Math.max(st.flicker, e.s); }},
+    {id:"vhs", g:"film", n:"ビデオテープ風", fn:(st, e) => { st.vhs = Math.max(st.vhs, e.s); }},
+    {id:"wave", g:"look", n:"波うつ", fn:(st, e) => { st.wave = Math.max(st.wave, e.s); }},
+    {id:"glitch", g:"look", n:"グリッチ", fn:(st, e) => { st.glitch = Math.max(st.glitch, e.s); }},
+    {id:"pixel", g:"look", n:"ドット化", fn:(st, e) => { st.pixel = Math.max(st.pixel, 1 + 14 * e.s * (.5 - .5 * Math.cos(e.w))); }},
+    {id:"bright", g:"look", n:"明るさが脈打つ", needFilter:true, fn:(st, e) => { st.bright *= 1 + 1.2 * Math.min(1.6, e.s) * (.5 - .5 * Math.cos(e.w)); }},
+    {id:"vignette", g:"look", n:"ふちが暗くなる", fn:(st, e) => { st.vig = Math.max(st.vig, Math.min(1, .6 * e.s)); }},
+  ];
+  const BYID = Object.fromEntries(EFFECTS.map(f => [f.id, f]));
+
+  // ---- settings ----
+  const SIZES = [128, 192, 256, 320, 384, 512, 768, 1024];
+  const FPSES = [10, 12, 15, 20, 24, 30];
+  const DEFAULTS = {fmt:"apng", wq:90, size:320, dur:3, fps:20, cyc:1, loop:false, bgOn:false, bgColor:"#ffffff", dot:false, stage:"check",
+    cap:true, cam:"toL", mode:"oneway", zoom:140, range:100, ease:"smooth", aspect:"orig", fx:{}};
+  const KEY = "eno-effect-maker-2";
+  let S = JSON.parse(JSON.stringify(DEFAULTS));
+  try { const o = JSON.parse(localStorage.getItem(KEY) || "{}"); Object.assign(S, o); if (!S.fx || typeof S.fx !== "object") S.fx = {}; } catch (e) {}
+  if (!SIZES.includes(S.size)) S.size = 320;
+  if (!FPSES.includes(S.fps)) S.fps = 20;
+  if (OLD_CAM[S.cam]) S.cam = OLD_CAM[S.cam];
+  if (!BYCAM[S.cam]) S.cam = "toL";
+  if (S.mode !== "oneway" && S.mode !== "pingpong") S.mode = "oneway";
+  if (!ASPECTS.some(a => a[0] === S.aspect)) S.aspect = "orig";
+  const store = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+  const fxs = id => S.fx[id] || (S.fx[id] = {on:false, v:50});
+
+  // ---- canvases ----
+  const cv = $("cv"), pctx = cv.getContext("2d");
+  const mk = () => { const c = document.createElement("canvas"); return [c, c.getContext("2d")]; };
+  const [L1, l1] = mk(), [L2, l2] = mk(), [PX, pxc] = mk(), [TN, tnc] = mk(), [EX, exc] = mk(), [WP, wctx] = mk();
+  let img = null, fileBase = "image", W = 0, H = 0, iw = 0, ih = 0;
+
+  function frameSize() {
+    let r = iw / ih;
+    if (S.aspect !== "orig") { const [a, b] = S.aspect.split(":").map(Number); r = a / b; }
+    return r >= 1 ? [S.size, Math.max(1, Math.round(S.size / r))] : [Math.max(1, Math.round(S.size * r)), S.size];
+  }
+  const PB = document.createElement("canvas"), pbc = PB.getContext("2d");
+  function buildBase() {
+    if (!img) return;
+    iw = img.naturalWidth || img.width; ih = img.naturalHeight || img.height;
+    [W, H] = frameSize();
+    for (const c of [L1, L2, PX, TN, EX, cv, WP]) { c.width = W; c.height = H; }
+    $("dims").textContent = `${W} × ${H} px`;
+  }
+
+  // Draw the camera view of the source image into WP.
+  function camera(tt) {
+    const cam = BYCAM[S.cam], Z = S.zoom / 100, R = cam.noRange ? 1 : S.range / 100, w = TAU * tt;
+    const sm = S.ease === "smooth";
+    const q = S.mode === "oneway" ? -1 + 2 * (sm ? tt * tt * (3 - 2 * tt) : tt)
+      : sm ? -Math.cos(w) : -1 + 4 * (tt < .5 ? tt : 1 - tt);
+    const k = cam.f({q, w, tt}, Z), z = Math.max(1, k.z);
+    const sc = Math.max(W / iw, H / ih), vw = W / (sc * z), vh = H / (sc * z);
+    const sx = (iw - vw) / 2 * (1 + k.px * R), sy = (ih - vh) / 2 * (1 + k.py * R);
+    wctx.globalAlpha = 1; wctx.globalCompositeOperation = "source-over"; wctx.filter = "none";
+    wctx.clearRect(0, 0, W, H);
+    wctx.imageSmoothingEnabled = !S.dot; wctx.imageSmoothingQuality = "high";
+    wctx.drawImage(img, Math.max(0, sx), Math.max(0, sy), Math.min(iw, vw), Math.min(ih, vh), 0, 0, W, H);
+    return WP;
+  }
+
+
+  // ---- frame renderer ----
+  const reset = c => { c.globalAlpha = 1; c.globalCompositeOperation = "source-over"; c.filter = "none"; c.shadowColor = "transparent"; c.shadowBlur = 0; };
+  function frame(c, t) {
+    const tt = fract(t * S.cyc), w = TAU * tt, u = Math.min(W, H);
+    const st = {bright:1, pixel:1, wave:0, glitch:0, vig:0, blur:0, sepia:0, gray:0, scratch:0, flicker:0, vhs:0};
+    for (const f of EFFECTS) {
+      const o = S.fx[f.id]; if (!o || !o.on || (f.needFilter && !CAN_FILTER)) continue;
+      let etT = tt, etW = w;
+      if (o.len != null || o.st) {   // effect limited to a time window (seconds of the whole animation)
+        const tm = SEC(o), sec = t * S.dur;
+        if (sec < tm.st || sec >= tm.st + tm.len) continue;
+        etT = (sec - tm.st) / tm.len; etW = TAU * etT;
+      }
+      f.fn(st, {tt:etT, w:etW, s:(o.v ?? 50) / 50, W, H, u, c:o.c || f.color});
+    }
+
+    // 0. camera: zoomed / panned view of the image
+    const src = camera(tt);
+
+    // 1. colour filters / pixelate -> L1
+    reset(l1); l1.clearRect(0, 0, W, H);
+    const fl = [];
+    if (st.bright !== 1) fl.push(`brightness(${st.bright.toFixed(3)})`);
+    if (st.sepia) fl.push(`sepia(${st.sepia})`);
+    if (st.gray) fl.push("grayscale(1)");
+    const bm = st.blur > .3 && CAN_FILTER ? st.blur : 0;
+    l1.filter = fl.length && CAN_FILTER ? fl.join(" ") : "none";
+    if (bm) {
+      // blur on a padded copy (edges filled by a stretched copy) so the frame isn't scaled and edges don't fade
+      const m = Math.ceil(bm * 3), pw = W + 2 * m, ph = H + 2 * m;
+      if (PB.width !== pw || PB.height !== ph) { PB.width = pw; PB.height = ph; }
+      reset(pbc); pbc.clearRect(0, 0, pw, ph); pbc.filter = `blur(${bm.toFixed(2)}px)`;
+      pbc.drawImage(src, 0, 0, pw, ph); pbc.drawImage(src, m, m);
+      pbc.filter = "none";
+      l1.drawImage(PB, m, m, W, H, 0, 0, W, H);
+    }
+    else if (st.pixel > 1.05) {
+      const pw = Math.max(1, Math.round(W / st.pixel)), ph = Math.max(1, Math.round(H / st.pixel));
+      reset(pxc); pxc.clearRect(0, 0, W, H); pxc.imageSmoothingEnabled = true; pxc.drawImage(src, 0, 0, pw, ph);
+      l1.imageSmoothingEnabled = false; l1.drawImage(PX, 0, 0, pw, ph, 0, 0, W, H);
+    } else l1.drawImage(src, 0, 0);
+    l1.filter = "none";
+
+    // 2. flash / shine / vignette only where the image is opaque
+    l1.globalCompositeOperation = "source-atop";
+    if (st.vig > 0) {
+      const g = l1.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .3, W / 2, H / 2, Math.hypot(W, H) * .55);
+      g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, `rgba(0,0,0,${st.vig})`);
+      l1.fillStyle = g; l1.fillRect(0, 0, W, H);
+    }
+    // film / retro overlays (frame-stepped randomness so loops stay deterministic)
+    const fi = Math.floor(tt * 24);
+    if (st.flicker > 0) {
+      const v = hash(fi + 5) - .5; l1.fillStyle = v > 0 ? "#fff" : "#000"; l1.globalAlpha = Math.abs(v) * .35 * Math.min(1.5, st.flicker); l1.fillRect(0, 0, W, H); l1.globalAlpha = 1;
+    }
+    if (st.scratch > 0) {
+      const ln = hash(fi + 21) < .6 * Math.min(1, st.scratch + .3) ? 1 + Math.floor(hash(fi + 22) * 2 * st.scratch) : 0;
+      // hairline scratches (sub-pixel wide, random length) and fine dust specks
+      l1.fillStyle = "#fff"; l1.globalAlpha = .4;
+      const lw = Math.max(.5, u / 700);
+      for (let i = 0; i < ln * 2; i++) {
+        const y0 = hash(fi * 11 + i + 80) * H * .8, len = H * (.15 + hash(fi * 5 + i + 90) * .85);
+        l1.fillRect(hash(fi * 7 + i + 30) * W, y0, lw, len);
+      }
+      l1.globalAlpha = .55;
+      const dn = Math.round(10 + 30 * st.scratch);
+      for (let i = 0; i < dn; i++) {
+        l1.fillStyle = hash(fi * 13 + i + 40) < .5 ? "#000" : "#fff";
+        const r = Math.max(.5, u * .0017 * (.5 + hash(fi * 17 + i + 50) * 1.2)); l1.beginPath(); l1.arc(hash(fi * 19 + i + 60) * W, hash(fi * 23 + i + 70) * H, r, 0, TAU); l1.fill();
+      }
+      l1.globalAlpha = 1;
+    }
+    if (st.vhs > 0) {
+      l1.fillStyle = "#000"; l1.globalAlpha = Math.min(.4, .18 * st.vhs);
+      const lh = Math.max(1, Math.round(u / 200)); for (let y = 0; y < H; y += lh * 3) l1.fillRect(0, y, W, lh);
+      const by = fract(tt * 2) * (H * 1.2) - H * .1;
+      l1.fillStyle = "#fff"; l1.globalAlpha = .08 * Math.min(2, st.vhs); l1.fillRect(0, by, W, H * .08);
+      l1.globalAlpha = 1;
+    }
+    l1.globalCompositeOperation = "source-over";
+
+    // 3. slice distortions
+    let cur = L1;
+    if (st.wave > 0) {
+      reset(l2); l2.clearRect(0, 0, W, H);
+      const step = Math.max(1, Math.round(H / 160));
+      for (let y = 0; y < H; y += step) l2.drawImage(cur, 0, y, W, step, Math.sin(TAU * (y / H * 2.5) - w) * W * .025 * st.wave, y, W, step);
+      cur = L2;
+    }
+    if (st.glitch > 0) {
+      // cyber glitch: always a little RGB split + scanlines; on burst frames big channel split, shifted bands and neon blocks
+      const i = Math.floor(tt * 24), burst = hash(i + 7) > .5, gs = Math.min(2, st.glitch);
+      const dst = cur === L1 ? l2 : l1, dstC = cur === L1 ? L2 : L1;
+      reset(dst); dst.clearRect(0, 0, W, H);
+      const d = W * (burst ? .025 + .012 * hash(i + 2) : .006) * gs;
+      dst.globalCompositeOperation = "lighter";
+      for (const [col, sgn] of [["#ff0000", -1], ["#00ff00", 0], ["#0000ff", 1]]) {
+        reset(tnc); tnc.clearRect(0, 0, W, H); tnc.drawImage(cur, 0, 0);
+        tnc.globalCompositeOperation = "multiply"; tnc.fillStyle = col; tnc.fillRect(0, 0, W, H);
+        tnc.globalCompositeOperation = "destination-in"; tnc.drawImage(cur, 0, 0); tnc.globalCompositeOperation = "source-over";
+        dst.drawImage(TN, sgn * d, 0);
+      }
+      dst.globalCompositeOperation = "source-over";
+      if (burst) {
+        const bands = 5 + Math.round(4 * gs);
+        for (let k = 0; k < bands; k++) {
+          const sy = Math.floor(hash(i * 13 + k) * H), sh = Math.max(2, Math.floor(H * (.015 + hash(i * 7 + k) * .08)));
+          const off = (hash(i * 31 + k) - .5) * W * .3 * Math.min(1.3, gs);
+          dst.save(); dst.beginPath(); dst.rect(0, sy, W, sh); dst.clip(); dst.clearRect(0, sy, W, sh);
+          dst.drawImage(cur, 0, sy, W, sh, off, sy, W, sh); dst.restore();
+          if (hash(i * 5 + k + 90) < .5) { dst.globalAlpha = .45; dst.fillStyle = hash(i * 9 + k) < .5 ? "#00f0ff" : "#ff2bd6"; dst.globalCompositeOperation = "source-atop"; dst.fillRect(0, sy, W, Math.max(1, sh * .35)); dst.globalCompositeOperation = "source-over"; dst.globalAlpha = 1; }
+        }
+        // neon blocks
+        dst.globalCompositeOperation = "source-atop";
+        for (let k = 0; k < 3; k++) {
+          const bw = W * (.06 + hash(i * 3 + k + 120) * .18), bh = H * (.02 + hash(i * 3 + k + 130) * .05);
+          dst.globalAlpha = .4; dst.fillStyle = k % 2 ? "#00f0ff" : "#ff2bd6";
+          dst.fillRect(hash(i * 3 + k + 140) * (W - bw), hash(i * 3 + k + 150) * (H - bh), bw, bh);
+        }
+        dst.globalAlpha = 1; dst.globalCompositeOperation = "source-over";
+      }
+      // scanlines + cyan cast
+      dst.globalCompositeOperation = "source-atop";
+      dst.globalAlpha = .1 * Math.min(1.5, gs); dst.fillStyle = "#00f0ff"; dst.fillRect(0, 0, W, H);
+      dst.globalAlpha = .22 * Math.min(1.5, gs); dst.fillStyle = "#000";
+      const lh = Math.max(1, Math.round(u / 220)); for (let y = 0; y < H; y += lh * 3) dst.fillRect(0, y, W, lh);
+      dst.globalAlpha = 1; dst.globalCompositeOperation = "source-over";
+      cur = dstC;
+    }
+
+    // 4. compose
+    reset(c); c.clearRect(0, 0, W, H);
+    if (S.bgOn) { c.fillStyle = S.bgColor; c.fillRect(0, 0, W, H); }
+    c.drawImage(cur, 0, 0);
+    reset(c);
+  }
+
+  // ---- preview loop ----
+  let phase = 0, last = 0, playing = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function tick(now) {
+    requestAnimationFrame(tick);
+    if (!img || !W) return;
+    const dt = last ? Math.min(100, now - last) : 0; last = now;
+    if (playing) phase = (phase + dt / (S.dur * 1000)) % 1;
+    frame(pctx, phase);
+  }
+
+  // ---- UI ----
+  const buildUi = () => {
+    SIZES.forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v + " px"; $("size").append(o); });
+    FPSES.forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v + " fps"; $("fps").append(o); });
+    CAMS.forEach(c => { const o = document.createElement("option"); o.value = c.id; o.textContent = c.n; $("cam").append(o); });
+    ASPECTS.forEach(([v, n]) => { const o = document.createElement("option"); o.value = v; o.textContent = n; $("aspect").append(o); });
+    for (const [gid, gname] of GROUPS) {
+      const d = document.createElement("details"); d.className = "sec"; d.open = true;
+      d.innerHTML = `<summary>${gname}</summary><fieldset aria-label="${gname}"><div class="fxgrid"></div></fieldset>`;
+      const grid = d.querySelector(".fxgrid");
+      for (const f of EFFECTS.filter(f => f.g === gid)) {
+        const card = document.createElement("div"); card.className = "fx"; card.dataset.id = f.id;
+        card.innerHTML = `<button type="button" class="fxbtn" aria-pressed="false">${f.n}</button><div class="fxopt" hidden></div>
+          <div class="fxopt fxt" hidden><span>開始</span><input type="range" class="ft" data-k="st" min="0" step="0.1" aria-label="${f.n}の開始"><small></small></div>
+          <div class="fxopt fxt" hidden><span>長さ</span><input type="range" class="ft" data-k="len" min="0.2" step="0.1" aria-label="${f.n}の長さ"><small></small></div>`;
+        const opt = card.querySelector(".fxopt");
+        if (!f.noS) opt.insertAdjacentHTML("beforeend", `<input type="range" min="10" max="100" step="5" aria-label="${f.n}の強さ"><small></small>`);
+        if (f.color) opt.insertAdjacentHTML("beforeend", `<input type="color" class="fc" aria-label="${f.n}の色">`);
+        if (f.noS && !f.color) opt.remove();
+        grid.append(card);
+      }
+      $("fxGroups").append(d);
+    }
+  };
+  buildUi();
+
+  const applyUi = () => {
+    $("cap").checked = S.cap; $("dot").checked = S.dot; $("loop").checked = S.loop; $("bgOn").checked = S.bgOn; $("bgColor").value = S.bgColor;
+    $("cam").value = S.cam; $("zoom").value = S.zoom; $("range").value = S.range; $("aspect").value = S.aspect;
+    $("size").value = S.size; $("fps").value = S.fps; $("dur").value = S.dur; $("wq").value = S.wq;
+    document.querySelectorAll(".fx").forEach(card => {
+      const f = BYID[card.dataset.id], o = fxs(f.id);
+      const r = card.querySelector(".fxopt:not(.fxt) input[type=range]"), cc = card.querySelector(".fc");
+      if (r) r.value = o.v ?? 50; if (cc) cc.value = o.c || f.color;
+    });
+  };
+  const SEC = o => { const st = Math.min(Math.max(0, o.st ?? 0), Math.max(0, S.dur - .2)); return {st, len:Math.min(o.len ?? S.dur, S.dur - st)}; };
+  function syncUi() {
+    const cam = BYCAM[S.cam];
+    $("zoomVal").textContent = S.zoom + "%"; $("rangeVal").textContent = S.range + "%"; $("durVal").textContent = S.dur.toFixed(1) + "秒";
+    $("rangeLabel").hidden = !!cam.noRange; $("easeBox").hidden = !!cam.loopOnly; $("modeBox").hidden = !!cam.loopOnly;
+    $("modeNote").textContent = S.mode === "oneway" ? "終わりから始めに戻るとき、画像が一瞬でもとの位置に戻ります。" : "終わりまで動いたあと、同じ道すじを戻ります。つなぎ目はなめらかです。";
+    $("wqVal").textContent = S.wq >= 100 ? "ロスレス" : S.wq;
+    $("wqLabel").hidden = S.fmt !== "webp"; $("capLabel").hidden = S.fmt !== "webp";
+    $("bgColor").disabled = !S.bgOn;
+    for (const [id, key] of [["fmtSeg", "fmt"], ["cycSeg", "cyc"], ["stageSeg", "stage"], ["easeSeg", "ease"], ["modeSeg", "mode"]])
+      $(id).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v) === String(S[key])));
+    $("stage").className = "stage" + (S.stage === "check" ? "" : " " + S.stage) + ($("stage").classList.contains("drag") ? " drag" : "");
+    document.querySelectorAll(".fx").forEach(card => {
+      const f = BYID[card.dataset.id], o = fxs(f.id), on = !!o.on && !(f.needFilter && !CAN_FILTER);
+      card.classList.toggle("on", on);
+      card.querySelector(".fxbtn").setAttribute("aria-pressed", on);
+      card.querySelector(".fxbtn").disabled = !!(f.needFilter && !CAN_FILTER);
+      const opt = card.querySelector(".fxopt:not(.fxt)"); if (opt) opt.hidden = !on;
+      const sm = card.querySelector(".fxopt:not(.fxt) small"); if (sm) sm.textContent = o.v ?? 50;
+      const tm = SEC(o), full = o.len == null || (tm.st === 0 && tm.len >= S.dur - .001);
+      card.querySelectorAll(".fxt").forEach(row => {
+        row.hidden = !on; const r = row.querySelector("input"), k = r.dataset.k;
+        r.max = k === "st" ? Math.max(0, S.dur - .2).toFixed(1) : S.dur; r.value = k === "st" ? tm.st : tm.len;
+        row.querySelector("small").textContent = k === "len" && full ? "全体" : (k === "st" ? tm.st : tm.len).toFixed(1) + "秒";
+      });
+    });
+    const n = EFFECTS.filter(f => S.fx[f.id]?.on).length;
+    $("fxNote").textContent = CAN_FILTER ? `選んだ効果は、カメラの動きに重ねがけされます（現在 ${n} 個）。`
+      : "このブラウザでは「ぼかし」「セピア」「モノクロ」は使えません。";
+    $("playBtn").textContent = playing ? "停止" : "再生";
+    $("playBtn").disabled = $("make").disabled = !img;
+    $("empty").hidden = !!img;
+  }
+  const change = (rebuild) => { if (rebuild) buildBase(); syncUi(); store(); };
+
+  $("fxGroups").addEventListener("click", e => {
+    const b = e.target.closest(".fxbtn"); if (!b) return;
+    const o = fxs(b.closest(".fx").dataset.id); o.on = !o.on; change();
+  });
+  $("fxGroups").addEventListener("input", e => {
+    const card = e.target.closest(".fx"); if (!card) return; const o = fxs(card.dataset.id);
+    if (e.target.classList.contains("ft")) { const v = +e.target.value; if (e.target.dataset.k === "st") o.st = v; else o.len = v >= S.dur - .001 ? null : v; }
+    else if (e.target.type === "range") o.v = +e.target.value; else if (e.target.type === "color") o.c = e.target.value;
+    change();
+  });
+  $("rand").addEventListener("click", () => {
+    const pick = (g, n) => { const a = EFFECTS.filter(f => f.g === g && !(f.needFilter && !CAN_FILTER)); const r = []; while (r.length < n && a.length) r.push(a.splice(Math.floor(Math.random() * a.length), 1)[0]); return r; };
+    S.fx = {};
+    [...pick("look", 1 + (Math.random() < .5 ? 1 : 0)), ...pick("film", Math.random() < .6 ? 1 : 0)]
+      .forEach(f => S.fx[f.id] = {on:true, v:40 + Math.floor(Math.random() * 5) * 10});
+    applyUi(); change();
+  });
+  $("clear").addEventListener("click", () => { S.fx = {}; applyUi(); change(); });
+  $("dot").addEventListener("change", e => { S.dot = e.target.checked; change(); });
+  $("loop").addEventListener("change", e => { S.loop = e.target.checked; change(); });
+  $("bgOn").addEventListener("change", e => { S.bgOn = e.target.checked; change(); });
+  $("bgColor").addEventListener("input", e => { S.bgColor = e.target.value; change(); });
+  $("cam").addEventListener("change", e => { S.cam = e.target.value; change(); });
+  $("zoom").addEventListener("input", e => { S.zoom = +e.target.value; change(); });
+  $("range").addEventListener("input", e => { S.range = +e.target.value; change(); });
+  $("aspect").addEventListener("change", e => { S.aspect = e.target.value; change(true); });
+  $("size").addEventListener("change", e => { S.size = +e.target.value; change(true); });
+  $("fps").addEventListener("change", e => { S.fps = +e.target.value; change(); });
+  $("dur").addEventListener("input", e => { S.dur = +e.target.value; change(); });
+  $("cap").addEventListener("change", e => { S.cap = e.target.checked; change(); });
+  $("wq").addEventListener("input", e => { S.wq = +e.target.value; change(); });
+  for (const [id, key, num] of [["fmtSeg", "fmt"], ["cycSeg", "cyc", 1], ["stageSeg", "stage"], ["easeSeg", "ease"], ["modeSeg", "mode"]])
+    $(id).addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; S[key] = num ? +b.dataset.v : b.dataset.v; change(); });
+  $("playBtn").addEventListener("click", () => { playing = !playing; syncUi(); });
+
+  // ---- image input ----
+  const pick = () => $("file").click();
+  $("pickBtn").addEventListener("click", pick); $("pickBtn2").addEventListener("click", pick);
+  $("file").addEventListener("change", e => { const f = e.target.files[0]; if (f) load(f); e.target.value = ""; });
+  const stg = $("stage");
+  ["dragenter", "dragover"].forEach(ev => document.addEventListener(ev, e => { if ([...(e.dataTransfer?.types || [])].includes("Files")) { e.preventDefault(); stg.classList.add("drag"); } }));
+  ["dragleave", "drop"].forEach(ev => document.addEventListener(ev, e => { if (ev === "dragleave" && e.relatedTarget) return; stg.classList.remove("drag"); }));
+  document.addEventListener("drop", e => { const f = [...(e.dataTransfer?.files || [])].find(f => f.type.startsWith("image/")); if (f) { e.preventDefault(); load(f); } });
+  document.addEventListener("paste", e => { const f = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith("image/")); if (f) { e.preventDefault(); load(f, "貼り付けた画像"); } });
+
+  function load(file, label) {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      URL.revokeObjectURL(url);
+      if (!(im.naturalWidth > 0 && im.naturalHeight > 0)) { $("status").textContent = "画像の大きさを取得できませんでした。"; return; }
+      img = im; fileBase = (label ? "image" : file.name.replace(/\.[^.]+$/, "")) || "image";
+      $("fname").textContent = label || file.name; $("status").textContent = ""; phase = 0;
+      change(true);
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); $("status").textContent = "画像を読み込めませんでした。"; };
+    im.src = url;
+  }
+
+  // ---- encoders ----
+  const crcT = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc32 = u8 => { let c = -1; for (let i = 0; i < u8.length; i++) c = crcT[(c ^ u8[i]) & 255] ^ (c >>> 8); return (~c) >>> 0; };
+  const ascii = s => Uint8Array.from(s, ch => ch.charCodeAt(0));
+  const cat = arrs => { const o = new Uint8Array(arrs.reduce((a, b) => a + b.length, 0)); let p = 0; for (const a of arrs) { o.set(a, p); p += a.length; } return o; };
+  function pngChunk(type, data) {
+    const o = new Uint8Array(12 + data.length), dv = new DataView(o.buffer);
+    dv.setUint32(0, data.length); o.set(ascii(type), 4); o.set(data, 8); dv.setUint32(8 + data.length, crc32(o.subarray(4, 8 + data.length))); return o;
+  }
+  function parsePng(buf) {
+    const u8 = new Uint8Array(buf), dv = new DataView(buf), idat = []; let p = 8, ihdr = null;
+    while (p + 8 <= u8.length) {
+      const len = dv.getUint32(p), type = String.fromCharCode(...u8.subarray(p + 4, p + 8)), data = u8.subarray(p + 8, p + 8 + len);
+      if (type === "IHDR") ihdr = data; else if (type === "IDAT") idat.push(data);
+      p += 12 + len;
+    }
+    if (!ihdr || !idat.length) throw new Error("png");
+    return {ihdr, idat: cat(idat)};
+  }
+  function encodeApng(bufs, delayMs, loops) {
+    const fr = bufs.map(parsePng), n = fr.length, w = new DataView(new ArrayBuffer(8));
+    const out = [Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10), pngChunk("IHDR", fr[0].ihdr)];
+    w.setUint32(0, n); w.setUint32(4, loops); out.push(pngChunk("acTL", new Uint8Array(w.buffer.slice(0, 8))));
+    const hd = new DataView(fr[0].ihdr.buffer, fr[0].ihdr.byteOffset), fw = hd.getUint32(0), fh = hd.getUint32(4);
+    let seq = 0;
+    fr.forEach((f, i) => {
+      const d = new DataView(new ArrayBuffer(26));
+      d.setUint32(0, seq++); d.setUint32(4, fw); d.setUint32(8, fh); d.setUint32(12, 0); d.setUint32(16, 0);
+      d.setUint16(20, delayMs); d.setUint16(22, 1000); d.setUint8(24, 0); d.setUint8(25, 0);
+      out.push(pngChunk("fcTL", new Uint8Array(d.buffer)));
+      if (i === 0) out.push(pngChunk("IDAT", f.idat));
+      else { const s = new Uint8Array(4); new DataView(s.buffer).setUint32(0, seq++); out.push(pngChunk("fdAT", cat([s, f.idat]))); }
+    });
+    out.push(pngChunk("IEND", new Uint8Array(0)));
+    return new Blob(out, {type:"image/png"});
+  }
+  const le = (v, n) => Uint8Array.from({length:n}, (_, i) => (v >>> (8 * i)) & 255);
+  function parseWebp(buf) {
+    const u8 = new Uint8Array(buf), dv = new DataView(buf);
+    if (String.fromCharCode(...u8.subarray(0, 4)) !== "RIFF" || String.fromCharCode(...u8.subarray(8, 12)) !== "WEBP") throw new Error("webp");
+    const chunks = []; let p = 12;
+    while (p + 8 <= u8.length) {
+      const type = String.fromCharCode(...u8.subarray(p, p + 4)), size = dv.getUint32(p + 4, true), total = 8 + size + (size & 1);
+      if (type === "ALPH" || type === "VP8 " || type === "VP8L") { const c = new Uint8Array(total); c.set(u8.subarray(p, Math.min(u8.length, p + total))); chunks.push(c); }
+      p += total;
+    }
+    if (!chunks.length) throw new Error("webp");
+    return cat(chunks);
+  }
+  function encodeWebp(bufs, w, h, delayMs, loops) {
+    const anmf = bufs.map(b => {
+      const data = parseWebp(b);
+      const head = cat([le(0, 3), le(0, 3), le(w - 1, 3), le(h - 1, 3), le(delayMs, 3), Uint8Array.of(2)]);
+      return cat([ascii("ANMF"), le(head.length + data.length, 4), head, data]);
+    });
+    const vp8x = cat([ascii("VP8X"), le(10, 4), Uint8Array.of(0x12, 0, 0, 0), le(w - 1, 3), le(h - 1, 3)]);
+    const anim = cat([ascii("ANIM"), le(6, 4), le(0, 4), le(loops, 2)]);
+    const body = cat([ascii("WEBP"), vp8x, anim, ...anmf]);
+    return new Blob([ascii("RIFF"), le(body.length, 4), body], {type:"image/webp"});
+  }
+  const toBlob = (c, type, q) => new Promise(r => c.toBlob(r, type, q));
+  const wait = () => new Promise(r => requestAnimationFrame(() => r()));
+  const fmtSize = b => b >= 1048576 ? (b / 1048576).toFixed(2) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+
+  // ---- make ----
+  let resUrl = "", busy = false;
+  $("make").addEventListener("click", async () => {
+    if (!img || busy) return;
+    busy = true; $("make").disabled = true; $("prog").hidden = false;
+    const N = Math.max(2, Math.min(240, Math.round(S.dur * S.fps))), delay = Math.round(1000 / S.fps), webp = S.fmt === "webp";
+    const LIMIT = 5000000, loops = S.loop ? 0 : 1;
+    const qs = webp && S.cap ? [S.wq, 80, 65, 50, 40, 30, 20, 10].filter((q, i, a) => q <= S.wq && a.indexOf(q) === i) : [S.wq];
+    try {
+      let out = null, usedQ = S.wq;
+      for (let qi = 0; qi < qs.length; qi++) {
+        const bufs = []; usedQ = qs[qi];
+        for (let i = 0; i < N; i++) {
+          frame(exc, i / N);
+          const blob = await toBlob(EX, webp ? "image/webp" : "image/png", webp ? usedQ / 100 : undefined);
+          if (!blob) throw new Error("blob");
+          if (webp && blob.type !== "image/webp") throw new Error("nowebp");
+          bufs.push(await blob.arrayBuffer());
+          $("status").textContent = `フレームを作成中… ${i + 1} / ${N}` + (qi ? `（画質${usedQ}で再調整）` : ""); $("progBar").style.width = ((i + 1) / N * 100) + "%";
+          if (i % 4 === 3) await wait();
+        }
+        $("status").textContent = "まとめています…"; await wait();
+        out = webp ? encodeWebp(bufs, W, H, delay, loops) : encodeApng(bufs, delay, loops);
+        if (out.size <= LIMIT) break;
+      }
+      if (resUrl) URL.revokeObjectURL(resUrl);
+      resUrl = URL.createObjectURL(out);
+      const over = webp && S.cap && out.size > LIMIT;
+      $("resMeta").innerHTML = [webp ? "アニメWebP" : "APNG", `${W} × ${H} px`, `${N} コマ`, `${(N * delay / 1000).toFixed(2)} 秒`, fmtSize(out.size), ...(webp ? [usedQ >= 100 ? "ロスレス" : `画質 ${usedQ}`] : [])].map(s => `<span>${s}</span>`).join("");
+      const a = $("resSave"); a.href = resUrl; a.download = `${fileBase}_anim.${webp ? "webp" : "png"}`;
+      $("result").hidden = false;
+      $("status").textContent = over ? "画質を下げても5MBを超えています。大きさ・コマ数・秒数を小さくしてください。" : "作成しました。";
+    } catch (e) {
+      $("status").textContent = e.message === "nowebp" ? "このブラウザはWebP出力に対応していません。APNGをお使いください。" : "作成に失敗しました。大きさやコマ数を小さくして試してください。";
+    } finally { busy = false; $("prog").hidden = true; $("progBar").style.width = "0"; $("make").disabled = !img; }
+  });
+
+  applyUi(); syncUi(); requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
