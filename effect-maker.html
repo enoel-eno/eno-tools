@@ -290,7 +290,7 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
   const GROUPS = [["look", "見た目・色"], ["film", "フィルム・レトロ"]];
   const EFFECTS = [
     {id:"blur", g:"look", n:"ぼかして戻す", needFilter:true, fn:(st, e) => { st.blur = Math.max(st.blur, e.u * .03 * e.s * (.5 - .5 * Math.cos(e.w))); }},
-    {id:"focusin", g:"look", n:"ぼけた状態から戻る", needFilter:true, fn:(st, e) => { const p = Math.min(1, e.tt / .6); st.blur = Math.max(st.blur, e.u * .04 * e.s * (1 - p * p * (3 - 2 * p))); }},
+    {id:"focusin", g:"look", n:"ぼけた状態から戻る", needFilter:true, fn:(st, e) => { const rec = Math.min(.8, e.len * .5) / e.len, p = Math.max(0, Math.min(1, (e.tt - (1 - rec)) / rec)); st.blur = Math.max(st.blur, e.u * .04 * e.s * (1 - p * p * (3 - 2 * p))); }},
     {id:"sepia", g:"look", n:"セピア", noS:true, needFilter:true, fn:(st, e) => { st.sepia = 1; }},
     {id:"mono", g:"look", n:"モノクロ", noS:true, needFilter:true, fn:(st, e) => { st.gray = 1; }},
     {id:"oldfilm", g:"film", n:"古い映画（まとめて）", fn:(st, e) => {
@@ -368,13 +368,13 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
     const st = {bright:1, pixel:1, wave:0, glitch:0, vig:0, blur:0, sepia:0, gray:0, scratch:0, flicker:0, vhs:0};
     for (const f of EFFECTS) {
       const o = S.fx[f.id]; if (!o || !o.on || (f.needFilter && !CAN_FILTER)) continue;
-      let etT = tt, etW = w;
+      let etT = tt, etW = w, etL = S.dur / S.cyc;
       if (o.len != null || o.st) {   // effect limited to a time window (seconds of the whole animation)
         const tm = SEC(o), sec = t * S.dur;
         if (sec < tm.st || sec >= tm.st + tm.len) continue;
-        etT = (sec - tm.st) / tm.len; etW = TAU * etT;
+        etT = (sec - tm.st) / tm.len; etW = TAU * etT; etL = tm.len;
       }
-      f.fn(st, {tt:etT, w:etW, s:(o.v ?? 50) / 50, W, H, u, c:o.c || f.color});
+      f.fn(st, {tt:etT, w:etW, len:etL, s:(o.v ?? 50) / 50, W, H, u, c:o.c || f.color});
     }
 
     // 0. camera: zoomed / panned view of the image
