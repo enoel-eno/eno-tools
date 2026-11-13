@@ -157,9 +157,15 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
               <button type="button" data-v="linear">一定の速さ</button>
             </div>
           </div>
-          <label for="aspect">枠の形
+          <label for="aspect">枠の比率
             <select id="aspect"></select>
           </label>
+          <div id="customAsp" class="inline" style="display:flex;align-items:center;gap:6px;margin:-4px 0 10px" hidden>
+            <input type="number" id="aw" min="1" max="100" step="1" inputmode="numeric" aria-label="横の比率" style="width:4.5em">
+            <span>:</span>
+            <input type="number" id="ah" min="1" max="100" step="1" inputmode="numeric" aria-label="縦の比率" style="width:4.5em">
+            <span class="sub" style="margin:0">（横 : 縦）</span>
+          </div>
           <p class="sub">枠の形に合わせて画像を切り抜き、拡大した画像を枠の中で動かします。拡大するほど、動かせる幅が広がります。</p>
         </fieldset>
       </details>
@@ -283,7 +289,7 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
   ];
   const OLD_CAM = {panH:"toL", panV:"toU", panD:"toUL", panD2:"toUR", zoom:"zin", zoomPan:"toL"};
   const BYCAM = Object.fromEntries(CAMS.map(c => [c.id, c]));
-  const ASPECTS = [["orig", "元の画像のまま"], ["1:1", "正方形 1:1"], ["4:3", "横長 4:3"], ["3:4", "縦長 3:4"], ["16:9", "横長 16:9"], ["9:16", "縦長 9:16"]];
+  const ASPECTS = [["orig", "元の画像のまま"], ["1:1", "正方形 1:1"], ["4:3", "横長 4:3"], ["3:4", "縦長 3:4"], ["3:2", "横長 3:2"], ["2:3", "縦長 2:3"], ["16:9", "横長 16:9"], ["9:16", "縦長 9:16"], ["21:9", "ワイド 21:9"], ["2:1", "横長 2:1"], ["custom", "自由に指定"]];
 
   // ---- effect catalogue (overlays on top of the camera image) ----
   // fn(st, e) mutates the shared frame state. e = {tt: cycle phase 0..1, w: 2π·tt, s: strength 0..2, W, H, u: min side, c: colour}
@@ -311,7 +317,7 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
   const SIZES = [128, 192, 256, 320, 384, 512, 768, 1024];
   const FPSES = [10, 12, 15, 20, 24, 30];
   const DEFAULTS = {fmt:"apng", wq:90, size:320, dur:3, fps:20, cyc:1, loop:false, bgOn:false, bgColor:"#ffffff", dot:false, stage:"check",
-    cap:true, cam:"toL", mode:"oneway", zoom:140, range:100, ease:"smooth", aspect:"orig", fx:{}};
+    aw:16, ah:9, cap:true, cam:"toL", mode:"oneway", zoom:140, range:100, ease:"smooth", aspect:"orig", fx:{}};
   const KEY = "eno-effect-maker-2";
   let S = JSON.parse(JSON.stringify(DEFAULTS));
   try { const o = JSON.parse(localStorage.getItem(KEY) || "{}"); Object.assign(S, o); if (!S.fx || typeof S.fx !== "object") S.fx = {}; } catch (e) {}
@@ -332,7 +338,9 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
 
   function frameSize() {
     let r = iw / ih;
-    if (S.aspect !== "orig") { const [a, b] = S.aspect.split(":").map(Number); r = a / b; }
+    if (S.aspect === "custom") r = Math.max(1, S.aw) / Math.max(1, S.ah);
+    else if (S.aspect !== "orig") { const [a, b] = S.aspect.split(":").map(Number); r = a / b; }
+    r = Math.min(10, Math.max(.1, r));
     return r >= 1 ? [S.size, Math.max(1, Math.round(S.size / r))] : [Math.max(1, Math.round(S.size * r)), S.size];
   }
   const PB = document.createElement("canvas"), pbc = PB.getContext("2d");
@@ -536,6 +544,7 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
 
   const applyUi = () => {
     $("cap").checked = S.cap; $("dot").checked = S.dot; $("loop").checked = S.loop; $("bgOn").checked = S.bgOn; $("bgColor").value = S.bgColor;
+    $("aw").value = S.aw; $("ah").value = S.ah;
     $("cam").value = S.cam; $("zoom").value = S.zoom; $("range").value = S.range; $("aspect").value = S.aspect;
     $("size").value = S.size; $("fps").value = S.fps; $("dur").value = S.dur; $("wq").value = S.wq;
     document.querySelectorAll(".fx").forEach(card => {
@@ -551,6 +560,7 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
     $("rangeLabel").hidden = !!cam.noRange; $("easeBox").hidden = !!cam.loopOnly; $("modeBox").hidden = !!cam.loopOnly;
     $("modeNote").textContent = S.mode === "oneway" ? "終わりから始めに戻るとき、画像が一瞬でもとの位置に戻ります。" : "終わりまで動いたあと、同じ道すじを戻ります。つなぎ目はなめらかです。";
     $("wqVal").textContent = S.wq >= 100 ? "ロスレス" : S.wq;
+    $("customAsp").hidden = S.aspect !== "custom";
     $("wqLabel").hidden = S.fmt !== "webp"; $("capLabel").hidden = S.fmt !== "webp";
     $("bgColor").disabled = !S.bgOn;
     for (const [id, key] of [["fmtSeg", "fmt"], ["cycSeg", "cyc"], ["stageSeg", "stage"], ["easeSeg", "ease"], ["modeSeg", "mode"]])
@@ -605,6 +615,8 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
   $("zoom").addEventListener("input", e => { S.zoom = +e.target.value; change(); });
   $("range").addEventListener("input", e => { S.range = +e.target.value; change(); });
   $("aspect").addEventListener("change", e => { S.aspect = e.target.value; change(true); });
+  for (const [id, key] of [["aw", "aw"], ["ah", "ah"]])
+    $(id).addEventListener("input", e => { const v = Math.round(+e.target.value); if (v >= 1 && v <= 100) { S[key] = v; change(true); } });
   $("size").addEventListener("change", e => { S.size = +e.target.value; change(true); });
   $("fps").addEventListener("change", e => { S.fps = +e.target.value; change(); });
   $("dur").addEventListener("input", e => { S.dur = +e.target.value; change(); });
