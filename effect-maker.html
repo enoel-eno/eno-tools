@@ -314,14 +314,14 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
   const BYID = Object.fromEntries(EFFECTS.map(f => [f.id, f]));
 
   // ---- settings ----
-  const SIZES = [128, 192, 256, 320, 384, 512, 768, 1024];
+  const SIZES = [128, 192, 256, 320, 384, 512, 640, 768, 1024, 1280];
   const FPSES = [10, 12, 15, 20, 24, 30];
-  const DEFAULTS = {fmt:"apng", wq:90, size:320, dur:3, fps:20, cyc:1, loop:false, bgOn:false, bgColor:"#ffffff", dot:false, stage:"check",
+  const DEFAULTS = {fmt:"apng", wq:90, size:768, dur:3, fps:20, cyc:1, loop:false, bgOn:false, bgColor:"#ffffff", dot:false, stage:"check",
     aw:16, ah:9, cap:true, cam:"toL", mode:"oneway", zoom:140, range:100, ease:"smooth", aspect:"orig", fx:{}};
   const KEY = "eno-effect-maker-2";
   let S = JSON.parse(JSON.stringify(DEFAULTS));
   try { const o = JSON.parse(localStorage.getItem(KEY) || "{}"); Object.assign(S, o); if (!S.fx || typeof S.fx !== "object") S.fx = {}; } catch (e) {}
-  if (!SIZES.includes(S.size)) S.size = 320;
+  if (!SIZES.includes(S.size) || S.size === 320) S.size = 768;   // 320 was the old (too small) default
   if (!FPSES.includes(S.fps)) S.fps = 20;
   if (OLD_CAM[S.cam]) S.cam = OLD_CAM[S.cam];
   if (!BYCAM[S.cam]) S.cam = "toL";
