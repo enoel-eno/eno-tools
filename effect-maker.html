@@ -166,6 +166,14 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
             <input type="number" id="ah" min="1" max="100" step="1" inputmode="numeric" aria-label="縦の比率" style="width:4.5em">
             <span class="sub" style="margin:0">（横 : 縦）</span>
           </div>
+          <label for="ox">切り抜きの位置（横） <span class="v" id="oxVal"></span>
+            <input type="range" id="ox" min="-100" max="100" step="1">
+          </label>
+          <label for="oy">切り抜きの位置（縦） <span class="v" id="oyVal"></span>
+            <input type="range" id="oy" min="-100" max="100" step="1">
+          </label>
+          <button type="button" class="btn ghost small" id="oReset">中央に戻す</button>
+          <p class="sub">プレビューをドラッグしても、切り抜きの位置を動かせます。</p>
           <p class="sub">枠の形に合わせて画像を切り抜き、拡大した画像を枠の中で動かします。拡大するほど、動かせる幅が広がります。</p>
         </fieldset>
       </details>
@@ -317,7 +325,7 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
   const SIZES = [128, 192, 256, 320, 384, 512, 640, 768, 1024, 1280];
   const FPSES = [10, 12, 15, 20, 24, 30];
   const DEFAULTS = {fmt:"apng", wq:90, size:768, dur:3, fps:20, cyc:1, loop:false, bgOn:false, bgColor:"#ffffff", dot:false, stage:"check",
-    aw:16, ah:9, cap:true, cam:"toL", mode:"oneway", zoom:140, range:100, ease:"smooth", aspect:"orig", fx:{}};
+    ox:0, oy:0, aw:16, ah:9, cap:true, cam:"toL", mode:"oneway", zoom:140, range:100, ease:"smooth", aspect:"orig", fx:{}};
   const KEY = "eno-effect-maker-2";
   let S = JSON.parse(JSON.stringify(DEFAULTS));
   try { const o = JSON.parse(localStorage.getItem(KEY) || "{}"); Object.assign(S, o); if (!S.fx || typeof S.fx !== "object") S.fx = {}; } catch (e) {}
@@ -344,6 +352,7 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
     return r >= 1 ? [S.size, Math.max(1, Math.round(S.size / r))] : [Math.max(1, Math.round(S.size * r)), S.size];
   }
   const PB = document.createElement("canvas"), pbc = PB.getContext("2d");
+  let camSlack = {x:0, y:0, vw:1, vh:1};
   function buildBase() {
     if (!img) return;
     iw = img.naturalWidth || img.width; ih = img.naturalHeight || img.height;
@@ -360,7 +369,9 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
       : sm ? -Math.cos(w) : -1 + 4 * (tt < .5 ? tt : 1 - tt);
     const k = cam.f({q, w, tt}, Z), z = Math.max(1, k.z);
     const sc = Math.max(W / iw, H / ih), vw = W / (sc * z), vh = H / (sc * z);
-    const sx = (iw - vw) / 2 * (1 + k.px * R), sy = (ih - vh) / 2 * (1 + k.py * R);
+    const cl = v => Math.max(-1, Math.min(1, v));
+    const sx = (iw - vw) / 2 * (1 + cl(k.px * R + S.ox / 100)), sy = (ih - vh) / 2 * (1 + cl(k.py * R + S.oy / 100));
+    camSlack = {x:(iw - vw) / 2, y:(ih - vh) / 2, vw, vh};
     wctx.globalAlpha = 1; wctx.globalCompositeOperation = "source-over"; wctx.filter = "none";
     wctx.clearRect(0, 0, W, H);
     wctx.imageSmoothingEnabled = !S.dot; wctx.imageSmoothingQuality = "high";
@@ -544,7 +555,7 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
 
   const applyUi = () => {
     $("cap").checked = S.cap; $("dot").checked = S.dot; $("loop").checked = S.loop; $("bgOn").checked = S.bgOn; $("bgColor").value = S.bgColor;
-    $("aw").value = S.aw; $("ah").value = S.ah;
+    $("aw").value = S.aw; $("ah").value = S.ah; $("ox").value = S.ox; $("oy").value = S.oy;
     $("cam").value = S.cam; $("zoom").value = S.zoom; $("range").value = S.range; $("aspect").value = S.aspect;
     $("size").value = S.size; $("fps").value = S.fps; $("dur").value = S.dur; $("wq").value = S.wq;
     document.querySelectorAll(".fx").forEach(card => {
@@ -561,6 +572,8 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
     $("modeNote").textContent = S.mode === "oneway" ? "終わりから始めに戻るとき、画像が一瞬でもとの位置に戻ります。" : "終わりまで動いたあと、同じ道すじを戻ります。つなぎ目はなめらかです。";
     $("wqVal").textContent = S.wq >= 100 ? "ロスレス" : S.wq;
     $("customAsp").hidden = S.aspect !== "custom";
+    $("oxVal").textContent = S.ox; $("oyVal").textContent = S.oy;
+    $("ox").value = S.ox; $("oy").value = S.oy;
     $("wqLabel").hidden = S.fmt !== "webp"; $("capLabel").hidden = S.fmt !== "webp";
     $("bgColor").disabled = !S.bgOn;
     for (const [id, key] of [["fmtSeg", "fmt"], ["cycSeg", "cyc"], ["stageSeg", "stage"], ["easeSeg", "ease"], ["modeSeg", "mode"]])
@@ -615,6 +628,22 @@ input[type=checkbox]{width:18px; height:18px; accent-color:var(--accent)}
   $("zoom").addEventListener("input", e => { S.zoom = +e.target.value; change(); });
   $("range").addEventListener("input", e => { S.range = +e.target.value; change(); });
   $("aspect").addEventListener("change", e => { S.aspect = e.target.value; change(true); });
+  $("ox").addEventListener("input", e => { S.ox = +e.target.value; change(); });
+  $("oy").addEventListener("input", e => { S.oy = +e.target.value; change(); });
+  $("oReset").addEventListener("click", () => { S.ox = S.oy = 0; change(); });
+  // drag the preview to move the crop (image follows the pointer)
+  { let drag = null;
+    cv.style.touchAction = "none"; cv.style.cursor = "grab";
+    cv.addEventListener("pointerdown", e => { if (!img) return; drag = {x:e.clientX, y:e.clientY, ox:S.ox, oy:S.oy}; cv.setPointerCapture(e.pointerId); cv.style.cursor = "grabbing"; });
+    cv.addEventListener("pointermove", e => {
+      if (!drag) return;
+      const r = cv.getBoundingClientRect(), k = camSlack, f = k.vw / r.width;   // source px per displayed px
+      if (k.x > 0.5) S.ox = Math.round(Math.max(-100, Math.min(100, drag.ox - (e.clientX - drag.x) * f / k.x * 100)));
+      if (k.y > 0.5) S.oy = Math.round(Math.max(-100, Math.min(100, drag.oy - (e.clientY - drag.y) * (k.vh / r.height) / k.y * 100)));
+      change();
+    });
+    const end = () => { drag = null; cv.style.cursor = "grab"; };
+    cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end); }
   for (const [id, key] of [["aw", "aw"], ["ah", "ah"]])
     $(id).addEventListener("input", e => { const v = Math.round(+e.target.value); if (v >= 1 && v <= 100) { S[key] = v; change(true); } });
   $("size").addEventListener("change", e => { S.size = +e.target.value; change(true); });
